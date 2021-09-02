@@ -1,0 +1,49 @@
+{
+  "name": "l3tum/core",
+  "description": "description",
+  "minimum-stability": "stable",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "L3tum"
+    }
+  ],
+  "require": {
+    "php": ">=8.0",
+    "psr/http-server-handler": "^1.0",
+    "psr/http-server-middleware": "^1.0",
+    "psr/container": "^2.0",
+    "psr/event-dispatcher": "^1.0",
+    "psr/log": "^1.1"
+  },
+  "require-dev": {
+    "roave/security-advisories": "dev-latest",
+    "vimeo/psalm": "^4.9",
+    "jetbrains/phpstorm-attributes": "^1.0",
+    "phpstan/phpstan": "^0.12",
+    "phpunit/phpunit": "^9",
+    "nyholm/psr7": "^1.4",
+    "league/event": "^3.0",
+    "infection/infection": "^0.24"
+  },
+  "autoload": {
+    "psr-4": {
+      "Riaf\\": "lib/Riaf/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Riaf\\": "tests/Riaf/"
+    }
+  },
+  "scripts": {
+    "psalm": "vendor/bin/psalm --show-info=true",
+    "phpstan": "vendor/bin/phpstan analyze -l 7 lib",
+    "phpunit": "XDEBUG_MODE=coverage vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox --coverage-text tests",
+    "phpcs": "tools/php-cs-fixer/vendor/bin/php-cs-fixer fix",
+    "phpbench": "tools/phpbench/vendor/bin/phpbench run tests/Benchmark --report=aggregate",
+    "infection": "XDEBUG_MODE=coverage vendor/bin/infection --show-mutations --only-covered",
+    "install-tools": "cd tools/php-cs-fixer && composer install && cd ../phpbench && composer install",
+    "update-tools": "cd tools/php-cs-fixer && composer update && cd ../phpbench && composer update"
+  }
+}
