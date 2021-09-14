@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Riaf\Events;
 
 use League\Event\EventDispatcher;
@@ -24,7 +26,7 @@ class RequestEventTest extends TestCase
     {
         $request = $this->createMock(ServerRequestInterface::class);
         $event = new RequestEvent($request);
-        $this->eventDispatcher->subscribeTo(RequestEvent::class, static function ($event) use ($request) {
+        $this->eventDispatcher->subscribeTo(RequestEvent::class, static function ($event) use ($request): void {
             /* @var RequestEvent $event */
             self::assertInstanceOf(RequestEvent::class, $event);
             self::assertInstanceOf($request::class, $event->getRequest());
@@ -36,7 +38,7 @@ class RequestEventTest extends TestCase
     {
         $request = $this->createMock(ServerRequestInterface::class);
         $event = new RequestEvent($request);
-        $this->eventDispatcher->subscribeTo(RequestEvent::class, static function ($event) {
+        $this->eventDispatcher->subscribeTo(RequestEvent::class, static function ($event): void {
             /* @var RequestEvent $event */
             $event->setRequest(new ServerRequest('GET', '/'));
         });

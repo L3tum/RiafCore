@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Benchmark\Riaf;
 
 use PhpBench\Attributes\BeforeMethods;

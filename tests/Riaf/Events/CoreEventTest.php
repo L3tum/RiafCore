@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Riaf\Events;
 
 use PHPUnit\Framework\TestCase;

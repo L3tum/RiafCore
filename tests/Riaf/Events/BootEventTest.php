@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Riaf\Events;
 
 use League\Event\EventDispatcher;
@@ -23,7 +25,7 @@ class BootEventTest extends TestCase
     {
         $core = $this->createMock(Core::class);
         $event = new BootEvent($core);
-        $this->eventDispatcher->subscribeTo(BootEvent::class, static function ($event) use ($core) {
+        $this->eventDispatcher->subscribeTo(BootEvent::class, static function ($event) use ($core): void {
             /* @var BootEvent $event */
             self::assertInstanceOf(BootEvent::class, $event);
             self::assertInstanceOf($core::class, $event->getCore());

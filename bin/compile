@@ -1,0 +1,74 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Riaf\Compiler\Analyzer\StandardAnalyzer;
+use Riaf\Compiler\BaseCompiler;
+use Riaf\Compiler\CompilerLoader;
+use Riaf\Compiler\ContainerCompiler;
+use Riaf\Compiler\MiddlewareDispatcherCompiler;use Riaf\Compiler\PreloadingCompiler;
+use Riaf\Compiler\RouterCompiler;
+use Riaf\Compiler\SampleCompilerConfiguration;
+use Riaf\Metrics\Clock\SystemClock;
+use Riaf\Metrics\Timing;
+
+if (version_compare("8.0", PHP_VERSION, ">")) {
+    fwrite(
+        STDERR,
+        "Requires PHP 8.0 or later." . PHP_EOL
+    );
+
+    die(1);
+}
+
+require getAutoloadPath();
+
+$timing = new Timing(new SystemClock());
+$timing->start('Total Compilation');
+$config = new SampleCompilerConfiguration();
+$analyzer = new StandardAnalyzer($timing);
+$compilers = [
+    RouterCompiler::class,
+    MiddlewareDispatcherCompiler::class,
+    ContainerCompiler::class,
+    PreloadingCompiler::class,
+];
+
+$compilers = array_merge($compilers, $config->getAdditionalCompilers());
+$compilerLoader = new CompilerLoader();
+
+foreach ($compilers as $compiler) {
+    $compilerClass = $compilerLoader->loadCompiler($compiler);
+
+    if ($compilerClass !== null) {
+        $instance = $compilerClass->newInstance($analyzer, $timing, $config);
+        /** @var BaseCompiler $instance */
+        if ($instance->supportsCompilation()) {
+            $instance->compile();
+        }
+    }
+}
+
+$timing->stop('Total Compilation');
+
+echo PHP_EOL;
+
+foreach ($timing->getTimings() as $key => $timing) {
+    echo $key . ': ' . round($timing, 2) . 's' . PHP_EOL;
+}
+
+
+function getAutoloadPath(): string
+{
+    $autoloadPath = getcwd() . '/vendor/autoload.php';
+
+    if (file_exists($autoloadPath)) {
+        return $autoloadPath;
+    }
+
+    fwrite(STDERR, "You need Composer to set up the project dependencies!" . PHP_EOL);
+    die(1);
+}
+
+?>

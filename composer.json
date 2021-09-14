@@ -1,5 +1,5 @@
 {
-  "name": "l3tum/core",
+  "name": "l3tum/riaf-core",
   "description": "description",
   "minimum-stability": "stable",
   "license": "MIT",
@@ -7,6 +7,9 @@
     {
       "name": "L3tum"
     }
+  ],
+  "bin": [
+    "bin/compile"
   ],
   "require": {
     "php": ">=8.0",
@@ -17,6 +20,7 @@
     "psr/log": "^1.1"
   },
   "require-dev": {
+    "ext-xdebug": "*",
     "roave/security-advisories": "dev-latest",
     "vimeo/psalm": "^4.9",
     "jetbrains/phpstorm-attributes": "^1.0",
@@ -28,7 +32,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Riaf\\": "lib/Riaf/"
+      "Riaf\\": "src/Riaf/"
     }
   },
   "autoload-dev": {
@@ -38,12 +42,15 @@
   },
   "scripts": {
     "psalm": "vendor/bin/psalm --show-info=true",
-    "phpstan": "vendor/bin/phpstan analyze -l 7 lib",
+    "phpstan": "vendor/bin/phpstan analyze -l 7 src",
     "phpunit": "XDEBUG_MODE=coverage vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox --coverage-text tests",
     "phpcs": "tools/php-cs-fixer/vendor/bin/php-cs-fixer fix",
     "phpbench": "tools/phpbench/vendor/bin/phpbench run tests/Benchmark --report=aggregate",
     "infection": "XDEBUG_MODE=coverage vendor/bin/infection --show-mutations --only-covered",
+    "post-install-cmd": "composer install-tools",
+    "post-update-cmd": "composer update-tools",
     "install-tools": "cd tools/php-cs-fixer && composer install && cd ../phpbench && composer install",
-    "update-tools": "cd tools/php-cs-fixer && composer update && cd ../phpbench && composer update"
+    "update-tools": "cd tools/php-cs-fixer && composer update && cd ../phpbench && composer update",
+    "compile": "bin/compile"
   }
 }

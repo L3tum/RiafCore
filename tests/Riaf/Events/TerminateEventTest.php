@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Riaf\Events;
 
 use League\Event\EventDispatcher;
@@ -27,7 +29,7 @@ class TerminateEventTest extends TestCase
         $request = $this->createMock(ServerRequestInterface::class);
         $response = $this->createMock(ResponseInterface::class);
         $event = new TerminateEvent($core, $request, $response);
-        $this->eventDispatcher->subscribeTo(TerminateEvent::class, static function ($event) use ($core, $response, $request) {
+        $this->eventDispatcher->subscribeTo(TerminateEvent::class, static function ($event) use ($core, $response, $request): void {
             /* @var TerminateEvent $event */
             self::assertInstanceOf(TerminateEvent::class, $event);
             self::assertInstanceOf($core::class, $event->getCore());

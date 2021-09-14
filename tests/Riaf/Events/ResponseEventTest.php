@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Riaf\Events;
 
 use League\Event\EventDispatcher;
@@ -27,7 +29,7 @@ class ResponseEventTest extends TestCase
         $request = $this->createMock(ServerRequestInterface::class);
         $response = $this->createMock(ResponseInterface::class);
         $event = new ResponseEvent($request, $response);
-        $this->eventDispatcher->subscribeTo(ResponseEvent::class, static function ($event) use ($response, $request) {
+        $this->eventDispatcher->subscribeTo(ResponseEvent::class, static function ($event) use ($response, $request): void {
             /* @var ResponseEvent $event */
             self::assertInstanceOf(ResponseEvent::class, $event);
             self::assertInstanceOf($request::class, $event->getRequest());
@@ -41,7 +43,7 @@ class ResponseEventTest extends TestCase
         $request = $this->createMock(ServerRequestInterface::class);
         $response = $this->createMock(ResponseInterface::class);
         $event = new ResponseEvent($request, $response);
-        $this->eventDispatcher->subscribeTo(ResponseEvent::class, static function ($event) {
+        $this->eventDispatcher->subscribeTo(ResponseEvent::class, static function ($event): void {
             /* @var ResponseEvent $event */
             $event->setRequest(new ServerRequest('GET', '/'));
             $event->setResponse(new Response());
