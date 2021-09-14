@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Riaf;
 
 use Psr\Container\ContainerInterface;
@@ -36,7 +38,7 @@ abstract class AbstractCore
         }
     }
 
-    protected function fetchContainer()
+    protected function fetchContainer(): void
     {
         if ($this->config instanceof ContainerCompilerConfiguration && $this->container === null) {
             $containerClass = '\\' . $this->config->getContainerNamespace() . '\\Container';
@@ -46,7 +48,7 @@ abstract class AbstractCore
         }
     }
 
-    protected function fetchMiddlewareDispatcher()
+    protected function fetchMiddlewareDispatcher(): void
     {
         if ($this->config instanceof MiddlewareDispatcherCompilerConfiguration && $this->container !== null) {
             $middlewareDispatcherClass = '\\' . $this->config->getMiddlewareDispatcherNamespace() . '\\MiddlewareDispatcher';
@@ -56,7 +58,7 @@ abstract class AbstractCore
         }
     }
 
-    protected function fetchRouter()
+    protected function fetchRouter(): void
     {
         if ($this->config instanceof RouterCompilerConfiguration && $this->requestHandler === null && $this->container !== null) {
             $routerClass = '\\' . $this->config->getRouterNamespace() . '\\Router';

@@ -20,7 +20,6 @@ class CoreBuilder implements RequestHandlerInterface
      */
     public function __construct(protected CompilerConfiguration $config, protected ?ContainerInterface $container = null)
     {
-
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface

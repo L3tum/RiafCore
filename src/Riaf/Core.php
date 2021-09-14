@@ -27,13 +27,13 @@ class Core extends AbstractCore implements RequestHandlerInterface
     protected LoggerInterface $logger;
 
     /**
-     * @param CompilerConfiguration $config The config
+     * @param CompilerConfiguration   $config    The config
      * @param ContainerInterface|null $container The container to fetch services from
      */
     public function __construct(
-        CompilerConfiguration $config, ?ContainerInterface $container = null,
-    )
-    {
+        CompilerConfiguration $config,
+        ?ContainerInterface $container = null,
+    ) {
         parent::__construct($config, $container);
         // Unset both as the properties should be used
         unset($config, $container);
