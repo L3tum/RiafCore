@@ -5,11 +5,12 @@ declare(strict_types=1);
 
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Compiler\BaseCompiler;
+use Riaf\Compiler\CompilerConfiguration;
 use Riaf\Compiler\CompilerLoader;
 use Riaf\Compiler\ContainerCompiler;
-use Riaf\Compiler\MiddlewareDispatcherCompiler;use Riaf\Compiler\PreloadingCompiler;
+use Riaf\Compiler\MiddlewareDispatcherCompiler;
+use Riaf\Compiler\PreloadingCompiler;
 use Riaf\Compiler\RouterCompiler;
-use Riaf\Compiler\SampleCompilerConfiguration;
 use Riaf\Metrics\Clock\SystemClock;
 use Riaf\Metrics\Timing;
 
@@ -26,8 +27,25 @@ require getAutoloadPath();
 
 $timing = new Timing(new SystemClock());
 $timing->start('Total Compilation');
-$config = new SampleCompilerConfiguration();
+
+if (count($argv) < 2) {
+    throw new RuntimeException("Missing required argument config class");
+}
+
+$configClass = $argv[1];
+
+if (!class_exists($configClass)) {
+    throw new RuntimeException("Config class does not exist");
+}
+
+$config = new $configClass();
+
+if (!$config instanceof CompilerConfiguration) {
+    throw new RuntimeException("Config does not extend " . CompilerConfiguration::class);
+}
+
 $analyzer = new StandardAnalyzer($timing);
+
 $compilers = [
     RouterCompiler::class,
     MiddlewareDispatcherCompiler::class,
