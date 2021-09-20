@@ -64,4 +64,9 @@ class SampleCompilerConfiguration extends CompilerConfiguration implements Prelo
     {
         return [];
     }
+
+    public function getAdditionalRouterClasses(): array
+    {
+        return [];
+    }
 }
