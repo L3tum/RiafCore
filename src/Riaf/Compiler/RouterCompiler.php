@@ -39,6 +39,12 @@ class RouterCompiler extends BaseCompiler
                 $this->analyzeClass($class);
             }
 
+            foreach ($config->getAdditionalRouterClasses() as $routerClass) {
+                if (class_exists($routerClass)) {
+                    $this->analyzeClass(new ReflectionClass($routerClass));
+                }
+            }
+
             $this->openResultFile($config->getRouterFilepath());
             $this->generateHeader();
             $this->generateRoutingTree();
@@ -68,9 +74,9 @@ class RouterCompiler extends BaseCompiler
         foreach ($class->getMethods() as $method) {
             $attributes = $method->getAttributes(Route::class);
 
-            if (count($attributes) > 0) {
+            foreach ($attributes as $attribute) {
                 /** @var Route $methodRoute */
-                $methodRoute = $attributes[0]->newInstance();
+                $methodRoute = $attribute->newInstance();
 
                 if ($instance !== null) {
                     if ($instance->getMethod() !== $methodRoute->getMethod()) {
