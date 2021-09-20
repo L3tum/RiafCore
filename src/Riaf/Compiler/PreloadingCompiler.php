@@ -26,8 +26,8 @@ class PreloadingCompiler extends BaseCompiler
         if ($this->config instanceof PreloadCompilerConfiguration) {
             /** @var PreloadCompilerConfiguration $config */
             $config = $this->config;
-            $handle = $this->openResultFile($config->getPreloadingFilepath());
-            $this->writeLine($handle, '<?php');
+            $this->openResultFile($config->getPreloadingFilepath());
+            $this->writeLine('<?php');
 
             $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot());
 
@@ -37,7 +37,7 @@ class PreloadingCompiler extends BaseCompiler
                 foreach ($preloadableClasses as $preloadableClass) {
                     /** @var ReflectionClass<object> $preloadableClass */
                     $filePath = $preloadableClass->getFileName();
-                    $this->writeLine($handle, "opcache_compile_file(\"$filePath\");");
+                    $this->writeLine("opcache_compile_file(\"$filePath\");");
                 }
             }
 
@@ -48,7 +48,7 @@ class PreloadingCompiler extends BaseCompiler
                     }
 
                     $this->preloadedFiles[$additionalPreloadedFile] = true;
-                    $this->writeLine($handle, "opcache_compile_file(\"$additionalPreloadedFile\");");
+                    $this->writeLine("opcache_compile_file(\"$additionalPreloadedFile\");");
                 }
             }
         }
@@ -72,7 +72,7 @@ class PreloadingCompiler extends BaseCompiler
 
         $filePath = $class->getFileName();
 
-        if ($filePath === false || empty($filePath)) {
+        if (empty($filePath)) {
             return;
         }
 

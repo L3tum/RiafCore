@@ -23,7 +23,7 @@ if (version_compare("8.0", PHP_VERSION, ">")) {
     die(1);
 }
 
-require getAutoloadPath();
+require_once getAutoloadPath();
 
 $timing = new Timing(new SystemClock());
 $timing->start('Total Compilation');

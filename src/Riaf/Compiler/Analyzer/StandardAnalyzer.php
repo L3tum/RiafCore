@@ -35,21 +35,18 @@ class StandardAnalyzer implements AnalyzerInterface
         }
 
         foreach ($autoloadedNamespaces as $namespace => $directory) {
-            if (!str_starts_with($directory, '.' . DIRECTORY_SEPARATOR)) {
-                $directory = '.' . DIRECTORY_SEPARATOR . $directory;
-            }
-            $directory = realpath($directory);
+            $dir = realpath($projectRoot . DIRECTORY_SEPARATOR . $directory);
 
-            if ($directory === false) {
+            if ($dir === false) {
                 $this->timing->stop(self::class);
                 // TODO: Exception
-                throw new Exception();
+                throw new Exception('Autoloaded Directory does not exist: ' . $directory);
             }
 
-            $files = $this->getFilesInDirectory($directory);
+            $files = $this->getFilesInDirectory($dir);
 
             foreach ($files as $file) {
-                $reflectionClass = $this->tryGetReflectionClass($namespace, $directory, $file);
+                $reflectionClass = $this->tryGetReflectionClass($namespace, $dir, $file);
 
                 if ($reflectionClass === null) {
                     continue;

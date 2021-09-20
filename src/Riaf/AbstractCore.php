@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Riaf;
 
 use Psr\Container\ContainerInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Riaf\Compiler\CompilerConfiguration;
 use Riaf\Compiler\Configuration\ContainerCompilerConfiguration;
 use Riaf\Compiler\Configuration\MiddlewareDispatcherCompilerConfiguration;
 use Riaf\Compiler\Configuration\RouterCompilerConfiguration;
+use Riaf\PsrExtensions\Http\ServerRequestCreator;
 use RuntimeException;
 
 abstract class AbstractCore
@@ -66,5 +68,13 @@ abstract class AbstractCore
                 $this->requestHandler = new $routerClass($this->container);
             }
         }
+    }
+
+    public function createRequestFromGlobals(): ServerRequestInterface
+    {
+        /** @var ServerRequestCreator $creator */
+        $creator = $this->container->get(ServerRequestCreator::class);
+
+        return $creator->fromGlobals();
     }
 }

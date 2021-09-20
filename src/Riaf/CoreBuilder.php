@@ -20,6 +20,7 @@ class CoreBuilder implements RequestHandlerInterface
      */
     public function __construct(protected CompilerConfiguration $config, protected ?ContainerInterface $container = null)
     {
+        $this->core = $config->isDevelopmentMode() ? new RuntimeCore($config, $container) : new Core($config, $container);
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface

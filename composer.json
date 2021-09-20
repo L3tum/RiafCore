@@ -53,6 +53,6 @@
     "post-update-cmd": "composer update-tools",
     "install-tools": "cd tools/php-cs-fixer && composer install && cd ../phpbench && composer install",
     "update-tools": "cd tools/php-cs-fixer && composer update && cd ../phpbench && composer update",
-    "compile": "bin/compile"
+    "compile": "bin/compile \"\\Riaf\\Compiler\\SampleCompilerConfiguration\""
   }
 }

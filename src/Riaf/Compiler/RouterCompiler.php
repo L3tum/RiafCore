@@ -39,10 +39,10 @@ class RouterCompiler extends BaseCompiler
                 $this->analyzeClass($class);
             }
 
-            $handle = $this->openResultFile($config->getRouterFilepath());
-            $this->generateHeader($handle);
-            $this->generateRoutingTree($handle);
-            $this->generateEnding($handle);
+            $this->openResultFile($config->getRouterFilepath());
+            $this->generateHeader();
+            $this->generateRoutingTree();
+            $this->generateEnding();
         }
         $this->timing->stop(self::class);
 
@@ -122,19 +122,15 @@ class RouterCompiler extends BaseCompiler
         }
     }
 
-    /**
-     * @param resource $handle
-     */
-    private function generateHeader(&$handle): void
+    private function generateHeader(): void
     {
         if ($this->config instanceof RouterCompilerConfiguration) {
             /** @var RouterCompilerConfiguration $config */
             $config = $this->config;
-            $this->writeLine($handle, '<?php');
+            $this->writeLine('<?php');
 
             $namespace = $config->getRouterNamespace();
             $this->writeLine(
-                $handle,
                 <<<HEADER
 namespace $namespace;
 
@@ -166,31 +162,29 @@ HEADER
         }
     }
 
-    /** @param resource $handle */
-    private function generateRoutingTree(&$handle): void
+    private function generateRoutingTree(): void
     {
         if (count($this->routingTree) > 0) {
-            $this->writeLine($handle, '$uriParts = explode("/", $request->getUri()->getPath());', 2);
+            $this->writeLine('$uriParts = explode("/", $request->getUri()->getPath());', 2);
         }
 
         foreach ($this->routingTree as $key => $tree) {
-            $this->writeLine($handle, "if(\$request->getMethod() === \"$key\")", 2);
-            $this->writeLine($handle, '{', 2);
+            $this->writeLine("if(\$request->getMethod() === \"$key\")", 2);
+            $this->writeLine('{', 2);
             $currentTree = $this->routingTree[$key];
 
             foreach ($currentTree as $matching => $next) {
-                $this->generateLeaf($handle, (string) $matching, $next);
+                $this->generateLeaf((string) $matching, $next);
             }
 
-            $this->writeLine($handle, '}', 2);
+            $this->writeLine('}', 2);
         }
     }
 
     /**
-     * @param resource                                                                                $handle
      * @param array{index: int, requirement: array<string, string|null>, call: array<string, string>} $values
      */
-    private function generateLeaf(&$handle, string $key, array $values): void
+    private function generateLeaf(string $key, array $values): void
     {
         $index = $values['index'];
         $count = $index + 1;
@@ -201,18 +195,18 @@ HEADER
             $pattern = $requirement['pattern'];
 
             if ($pattern !== null) { // Parameter with Requirement
-                $this->writeLine($handle, "if(preg_match(\"/^$pattern$/\", \$uriParts[$index], \$matches) === 1)", $index + 3);
-                $this->writeLine($handle, '{', $index + 3);
-                $this->writeLine($handle, "\$capturedParams[\"$parameter\"] = \$matches[0];", $index + 4);
+                $this->writeLine("if(preg_match(\"/^$pattern$/\", \$uriParts[$index], \$matches) === 1)", $index + 3);
+                $this->writeLine('{', $index + 3);
+                $this->writeLine("\$capturedParams[\"$parameter\"] = \$matches[0];", $index + 4);
             } else { // Parameter without requirement
-                $this->writeLine($handle, "if(count(\$uriParts) >= $count)");
-                $this->writeLine($handle, '{', $index + 3);
-                $this->writeLine($handle, "\$capturedParams[\"$parameter\"] = \$uriParts[$index];", $index + 4);
+                $this->writeLine("if(count(\$uriParts) >= $count)");
+                $this->writeLine('{', $index + 3);
+                $this->writeLine("\$capturedParams[\"$parameter\"] = \$uriParts[$index];", $index + 4);
             }
         } // Normal route
         else {
-            $this->writeLine($handle, "if(\$uriParts[$index] === \"$key\")", $index + 3);
-            $this->writeLine($handle, '{', $index + 3);
+            $this->writeLine("if(\$uriParts[$index] === \"$key\")", $index + 3);
+            $this->writeLine('{', $index + 3);
         }
 
         if (!isset($values['next'])) {
@@ -220,8 +214,8 @@ HEADER
                 $class = $values['call']['class'];
                 $method = $values['call']['method'];
 
-                $this->writeLine($handle, "if(count(\$uriParts) === $count)", $index + 4);
-                $this->writeLine($handle, '{', $index + 4);
+                $this->writeLine("if(count(\$uriParts) === $count)", $index + 4);
+                $this->writeLine('{', $index + 4);
 
                 $params = [];
 
@@ -264,19 +258,19 @@ HEADER
                 }
 
                 $parameter = implode(', ', $params);
-                $this->writeLine($handle, "return \$this->container->get(\"$class\")->$method($parameter);", $index + 5);
-                $this->writeLine($handle, '}', $index + 4);
+                $this->writeLine("return \$this->container->get(\"$class\")->$method($parameter);", $index + 5);
+                $this->writeLine('}', $index + 4);
             }
             // TODO: Exception
         } else {
             $next = $values['next'];
 
             foreach ($next as $matching => $value) {
-                $this->generateLeaf($handle, $matching, $value);
+                $this->generateLeaf($matching, $value);
             }
         }
 
-        $this->writeLine($handle, '}', $index + 3);
+        $this->writeLine('}', $index + 3);
     }
 
     /**
@@ -297,13 +291,10 @@ HEADER
         return [];
     }
 
-    /**
-     * @param resource $handle
-     */
-    public function generateEnding(&$handle): void
+    public function generateEnding(): void
     {
-        $this->writeLine($handle, 'return $this->container->get(ResponseFactoryInterface::class)->createResponse(404);', 2);
-        $this->writeLine($handle, '}', 1);
-        $this->writeLine($handle, '}');
+        $this->writeLine('return $this->container->get(ResponseFactoryInterface::class)->createResponse(404);', 2);
+        $this->writeLine('}', 1);
+        $this->writeLine('}');
     }
 }

@@ -27,9 +27,9 @@ class RuntimeCore extends Core
     /**
      * @throws Exception
      */
-    public function __construct(protected CompilerConfiguration $config, protected ?ContainerInterface $container = null)
+    public function __construct(CompilerConfiguration $config, ?ContainerInterface $container = null)
     {
-        $compilers = array_merge(self::COMPILERS, $config->getAdditionalCompilers());
+        $compilers = array_merge($config->getAdditionalCompilers(), self::COMPILERS);
         $timing = new Timing(new SystemClock());
         $analyzer = new StandardAnalyzer($timing);
 

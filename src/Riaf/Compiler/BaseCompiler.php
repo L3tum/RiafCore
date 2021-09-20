@@ -16,8 +16,20 @@ abstract class BaseCompiler
 {
     private string $lineBreak = PHP_EOL;
 
+    /**
+     * @var resource|null
+     */
+    private $handle = null;
+
     public function __construct(protected AnalyzerInterface $analyzer, protected Timing $timing, protected CompilerConfiguration $config)
     {
+    }
+
+    public function __destruct()
+    {
+        if ($this->handle !== null) {
+            fclose($this->handle);
+        }
     }
 
     abstract public function compile(): bool;
@@ -48,13 +60,10 @@ abstract class BaseCompiler
         return null;
     }
 
-    /**
-     * @param resource $fileHandle
-     */
-    protected function writeLine(&$fileHandle, string $line = '', int $indentation = 0): void
+    protected function writeLine(string $line = '', int $indentation = 0): void
     {
         /* @phpstan-ignore-next-line */
-        fwrite($fileHandle, implode(array_fill(0, $indentation, "\t")) . $line . $this->lineBreak);
+        fwrite($this->handle, implode(array_fill(0, $indentation, "\t")) . $line . $this->lineBreak);
     }
 
     /**
@@ -64,17 +73,17 @@ abstract class BaseCompiler
      */
     protected function openResultFile(string $path)
     {
-        $handle = $this->config->getFileHandle($this);
+        $this->handle = $this->config->getFileHandle($this);
 
-        if ($handle === null) {
-            $handle = fopen($this->config->getProjectRoot() . $path, 'wb+');
+        if ($this->handle === null) {
+            $this->handle = fopen($this->config->getProjectRoot() . $path, 'wb+') ?: null;
         }
 
-        if ($handle === false) {
+        if ($this->handle === null) {
             // TODO: Exception
             throw new Exception();
         }
 
-        return $handle;
+        return $this->handle;
     }
 }

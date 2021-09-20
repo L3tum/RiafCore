@@ -44,22 +44,20 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
             return 0;
         });
 
-        $handle = $this->openResultFile($config->getMiddlewareDispatcherFilepath());
+        $this->openResultFile($config->getMiddlewareDispatcherFilepath());
 
-        $this->generateMiddlewareDispatcher($handle, $config->getMiddlewareDispatcherNamespace(), $middlewares);
+        $this->generateMiddlewareDispatcher($config->getMiddlewareDispatcherNamespace(), $middlewares);
 
         return true;
     }
 
     /**
-     * @param resource                                              $handle
      * @param array<int, array{0: int, 1: ReflectionClass<object>}> $middlewares
      */
-    private function generateMiddlewareDispatcher(&$handle, string $namespace, array $middlewares): void
+    private function generateMiddlewareDispatcher(string $namespace, array $middlewares): void
     {
-        $this->writeLine($handle, '<?php');
+        $this->writeLine('<?php');
         $this->writeLine(
-            $handle,
             <<<HEADER
 namespace $namespace;
 
@@ -81,11 +79,10 @@ HEADER
         foreach ($middlewares as $middleware) {
             /** @var ReflectionClass<object> $class */
             $class = $middleware[1];
-            $this->writeLine($handle, "\"$class->name\",", 2);
+            $this->writeLine("\"$class->name\",", 2);
         }
 
         $this->writeLine(
-            $handle,
             <<<ENDING
     ];
     

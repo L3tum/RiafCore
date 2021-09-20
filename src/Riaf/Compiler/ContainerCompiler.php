@@ -61,9 +61,9 @@ class ContainerCompiler extends BaseCompiler
                 }
             }
 
-            $handle = $this->openResultFile($config->getContainerFilepath());
+            $this->openResultFile($config->getContainerFilepath());
 
-            $this->generateContainer($handle);
+            $this->generateContainer();
         }
 
         $this->timing->stop(self::class);
@@ -140,29 +140,24 @@ new \\$className($parameterString)
 FUNCTION;
     }
 
-    /**
-     * @param resource $handle
-     */
-    private function generateContainer(&$handle): void
+    private function generateContainer(): void
     {
-        $this->generateHeader($handle);
+        $this->generateHeader();
 
-        $availableServices = $this->generateContainerGetter($handle);
+        $availableServices = $this->generateContainerGetter();
 
-        $this->generateContainerHasser($handle, $availableServices);
+        $this->generateContainerHasser($availableServices);
 
-        $this->writeLine($handle, '}');
+        $this->writeLine('}');
     }
 
-    /** @param resource $handle */
-    private function generateHeader(&$handle): void
+    private function generateHeader(): void
     {
         /** @var ContainerCompilerConfiguration $config */
         $config = $this->config;
         $namespace = $config->getContainerNamespace();
-        $this->writeLine($handle, '<?php');
-        fwrite(
-            $handle,
+        $this->writeLine('<?php');
+        $this->writeLine(
             <<<HEADER
 namespace $namespace;
 
@@ -176,17 +171,14 @@ class Container implements ContainerInterface
     public function get(string \$id)
     {
         return \$this->instantiatedServices[\$id] ?? \$this->instantiatedServices[\$id] = match (\$id){
-
 HEADER
         );
     }
 
     /**
-     * @param resource $handle
-     *
      * @return string[]
      */
-    private function generateContainerGetter(&$handle): array
+    private function generateContainerGetter(): array
     {
         /** @var string[] $availableServices */
         $availableServices = [];
@@ -197,7 +189,6 @@ HEADER
             foreach ($interfaces as $interface) {
                 if ($interface !== $key && $this->interfaceToClassMapping[$interface] === $key) {
                     $this->writeLine(
-                        $handle,
                         "\"$interface\" => \$this->instantiatedServices[\"$key\"] ?? \$this->instantiatedServices[\"$key\"] = $method,",
                         3
                     );
@@ -205,41 +196,39 @@ HEADER
                 }
             }
 
-            $this->writeLine($handle, "\"$key\" => $method,", 3);
+            $this->writeLine("\"$key\" => $method,", 3);
             $availableServices[] = $key;
         }
 
         $this->writeLine(
-            $handle,
             'default => throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException($id)',
             3
         );
 
-        $this->writeLine($handle, '};', 2);
-        $this->writeLine($handle, '}', 1);
-        $this->writeLine($handle);
+        $this->writeLine('};', 2);
+        $this->writeLine('}', 1);
+        $this->writeLine();
 
         return $availableServices;
     }
 
     /**
-     * @param resource $handle
      * @param string[] $availableServices
      */
-    private function generateContainerHasser(&$handle, array $availableServices): void
+    private function generateContainerHasser(array $availableServices): void
     {
-        $this->writeLine($handle, '/** @var array<string, bool> */', 1);
-        $this->writeLine($handle, 'private const AVAILABLE_SERVICES = [', 1);
+        $this->writeLine('/** @var array<string, bool> */', 1);
+        $this->writeLine('private const AVAILABLE_SERVICES = [', 1);
 
         foreach ($availableServices as $availableService) {
-            $this->writeLine($handle, "\"$availableService\" => true,", 2);
+            $this->writeLine("\"$availableService\" => true,", 2);
         }
 
-        $this->writeLine($handle, '];', 1);
-        $this->writeLine($handle);
-        $this->writeLine($handle, 'public function has(string $id): bool', 1);
-        $this->writeLine($handle, '{', 1);
-        $this->writeLine($handle, 'return isset(self::AVAILABLE_SERVICES[$id]);', 2);
-        $this->writeLine($handle, '}', 1);
+        $this->writeLine('];', 1);
+        $this->writeLine();
+        $this->writeLine('public function has(string $id): bool', 1);
+        $this->writeLine('{', 1);
+        $this->writeLine('return isset(self::AVAILABLE_SERVICES[$id]);', 2);
+        $this->writeLine('}', 1);
     }
 }
