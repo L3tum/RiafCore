@@ -37,8 +37,11 @@ class Core extends AbstractCore implements RequestHandlerInterface
         parent::__construct($config, $container);
         // Unset both as the properties should be used
         unset($config, $container);
+        /* @psalm-suppress PossiblyNullReference It's checked in AbstractCore and an exception thrown if null. */
         $this->eventDispatcher = $this->container->has(EventDispatcherInterface::class) ? $this->container->get(EventDispatcherInterface::class) : null;
+        /* @psalm-suppress PossiblyNullReference It's checked in AbstractCore and an exception thrown if null. */
         $this->responseEmitter = $this->container->has(ResponseEmitterInterface::class) ? $this->container->get(ResponseEmitterInterface::class) : null;
+        /* @psalm-suppress PossiblyNullReference It's checked in AbstractCore and an exception thrown if null. */
         $this->logger = $this->container->has(LoggerInterface::class) ? $this->container->get(LoggerInterface::class) : new NullLogger();
         $this->fireBootEvent();
     }
@@ -55,6 +58,7 @@ class Core extends AbstractCore implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $request = $this->fireRequestEvent($request);
+        /** @psalm-suppress PossiblyNullReference It's checked in AbstractCore and an exception thrown if null. */
         $response = $this->requestHandler->handle($request);
         $response = $this->fireResponseEvent($request, $response);
 

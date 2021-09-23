@@ -34,6 +34,11 @@ class RuntimeCore extends Core
         $analyzer = new StandardAnalyzer($timing);
 
         foreach ($compilers as $compilerClass) {
+            if (!class_exists($compilerClass)) {
+                // TODO: Exception?
+                continue;
+            }
+
             /** @var BaseCompiler $compiler */
             $compiler = new $compilerClass($analyzer, $timing, $config);
             if ($compiler->supportsCompilation()) {

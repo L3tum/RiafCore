@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler;
 
+use Psr\Http\Server\MiddlewareInterface;
 use ReflectionClass;
 use Riaf\Compiler\Configuration\MiddlewareDispatcherCompilerConfiguration;
 use Riaf\PsrExtensions\Middleware\Middleware;
+use Riaf\PsrExtensions\Middleware\MiddlewareHint;
 
 class MiddlewareDispatcherCompiler extends BaseCompiler
 {
     public function compile(): bool
     {
+        $this->timing->start(self::class);
+
         /** @var MiddlewareDispatcherCompilerConfiguration $config */
         $config = $this->config;
 
@@ -19,17 +23,32 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
         $middlewares = [];
 
         foreach ($classes as $class) {
-            /** @var ReflectionClass<object> $class */
-            $attributes = $class->getAttributes(Middleware::class);
+            $definition = $this->getMiddlewareDefinition($class);
 
-            if (count($attributes) === 0) {
-                continue;
+            if ($definition !== null) {
+                $middlewares[] = $definition;
             }
+        }
 
-            $attribute = $attributes[0];
-            /** @var Middleware $instance */
-            $instance = $attribute->newInstance();
-            $middlewares[] = [$instance->getPriority(), $class];
+        foreach ($config->getAdditionalMiddlewares() as $additionalMiddleware) {
+            if (is_string($additionalMiddleware) && class_exists($additionalMiddleware)) {
+                $class = new ReflectionClass($additionalMiddleware);
+                $definition = $this->getMiddlewareDefinition($class);
+
+                if ($definition !== null) {
+                    $middlewares[] = $definition;
+                }
+            } elseif ($additionalMiddleware instanceof MiddlewareHint) {
+                if (class_exists($additionalMiddleware->getClass())) {
+                    $class = new ReflectionClass($additionalMiddleware->getClass());
+                    $definition = $this->getMiddlewareDefinition($class);
+
+                    if ($definition !== null) {
+                        $definition[0] = $additionalMiddleware->getPriority();
+                        $middlewares[] = $definition;
+                    }
+                }
+            }
         }
 
         usort($middlewares, static function (array $a, array $b) {
@@ -48,7 +67,34 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
 
         $this->generateMiddlewareDispatcher($config->getMiddlewareDispatcherNamespace(), $middlewares);
 
+        $this->timing->stop(self::class);
+
         return true;
+    }
+
+    /**
+     * @param ReflectionClass<object> $middleware
+     *
+     * @return array{0: int, 1: ReflectionClass<MiddlewareInterface>}|null
+     */
+    private function getMiddlewareDefinition(ReflectionClass $middleware): ?array
+    {
+        if (!$middleware->implementsInterface(MiddlewareInterface::class)) {
+            return null;
+        }
+
+        /** @var ReflectionClass<MiddlewareInterface> $middleware */
+        $attributes = $middleware->getAttributes(Middleware::class);
+
+        if (count($attributes) === 0) {
+            return null;
+        }
+
+        $attribute = $attributes[0];
+        /** @var Middleware $instance */
+        $instance = $attribute->newInstance();
+
+        return [$instance->getPriority(), $middleware];
     }
 
     /**

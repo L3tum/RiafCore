@@ -1,0 +1,4 @@
+parameters:
+	excludePaths:
+		- src/Riaf/PsrExtensions/Http/ServerRequestCreator.php
+		- src/Riaf/Compiler/Analyzer/ClassLoaderAnalyzer.php

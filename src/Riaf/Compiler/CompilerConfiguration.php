@@ -7,6 +7,7 @@ namespace Riaf\Compiler;
 use function dirname;
 use LogicException;
 use ReflectionObject;
+use RuntimeException;
 
 abstract class CompilerConfiguration
 {
@@ -22,6 +23,10 @@ abstract class CompilerConfiguration
         if ($this->projectDir === null) {
             $reflectionObject = new ReflectionObject($this);
             $dir = $reflectionObject->getFileName();
+
+            if ($dir === false) {
+                throw new RuntimeException('Cannot get file name for config of class ' . $reflectionObject->name);
+            }
 
             if (!is_file($dir)) {
                 throw new LogicException('Cannot auto-detect project dir for config of class ' . $reflectionObject->name);

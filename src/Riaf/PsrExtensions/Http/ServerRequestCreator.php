@@ -82,6 +82,10 @@ class ServerRequestCreator
 
     /**
      * Implementation from Laminas\Diactoros\marshalHeadersFromSapi().
+     *
+     * @param array<string, string|int> $server
+     *
+     * @return array<string, string>
      */
     private function getHeadersFromServer(array $server): array
     {
@@ -121,10 +125,10 @@ class ServerRequestCreator
      * Create a new server request from a set of arrays.
      *
      * @param array<string, string>                $server  typically $_SERVER or similar structure
-     * @param array<string, string>                $headers typically the output of getallheaders() or similar structure
+     * @param array<string|int, string>            $headers typically the output of getallheaders() or similar structure
      * @param array<string, string>                $cookie  typically $_COOKIE or similar structure
      * @param array<string, string>                $get     typically $_GET or similar structure
-     * @param array|null                           $post    typically $_POST or similar structure, represents parsed request body
+     * @param array<string, string>|null           $post    typically $_POST or similar structure, represents parsed request body
      * @param array<string, string[]>              $files   typically $_FILES or similar structure
      * @param StreamInterface|resource|string|null $body    Typically stdIn
      *
@@ -177,6 +181,9 @@ class ServerRequestCreator
         return $serverRequest->withBody($body);
     }
 
+    /**
+     * @param array<string, string|int> $server
+     */
     private function createUriFromArray(array $server): UriInterface
     {
         $uri = $this->uriFactory->createUri('');
@@ -219,10 +226,6 @@ class ServerRequestCreator
     /**
      * Return an UploadedFile instance array.
      *
-     * @param array<string, string[]> $files A array which respect $_FILES structure
-     *
-     * @return UploadedFileInterface[]
-     *
      * @throws InvalidArgumentException for unrecognized values
      */
     private function normalizeFiles(array $files): array
@@ -249,10 +252,6 @@ class ServerRequestCreator
      *
      * If the specification represents an array of values, this method will
      * delegate to normalizeNestedFileSpec() and return that return value.
-     *
-     * @param array<string, string[]> $value $_FILES struct
-     *
-     * @return UploadedFileInterface[]|UploadedFileInterface
      */
     private function createUploadedFileFromSpec(array $value): array|UploadedFileInterface
     {
@@ -264,7 +263,7 @@ class ServerRequestCreator
             $stream = $this->streamFactory->createStream();
         } else {
             try {
-                $stream = $this->streamFactory->createStreamFromFile($value['tmp_name']);
+                $stream = $this->streamFactory->createStreamFromFile((string) $value['tmp_name']);
             } catch (RuntimeException) {
                 $stream = $this->streamFactory->createStream();
             }
@@ -274,7 +273,9 @@ class ServerRequestCreator
             $stream,
             (int) $value['size'],
             (int) $value['error'],
+            /* @phpstan-ignore-next-line */
             $value['name'],
+            /* @phpstan-ignore-next-line */
             $value['type']
         );
     }
@@ -284,8 +285,6 @@ class ServerRequestCreator
      *
      * Loops through all nested files and returns a normalized array of
      * UploadedFileInterface instances.
-     *
-     * @return UploadedFileInterface[]
      */
     private function normalizeNestedFileSpec(array $files = []): array
     {

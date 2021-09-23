@@ -11,6 +11,7 @@ use ReflectionNamedType;
 use ReflectionType;
 use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Metrics\Timing;
+use RuntimeException;
 
 abstract class BaseCompiler
 {
@@ -62,6 +63,12 @@ abstract class BaseCompiler
 
     protected function writeLine(string $line = '', int $indentation = 0): void
     {
+        if ($this->handle === null) {
+            // TODO: Exception
+            throw new RuntimeException();
+        }
+
+        $indentation = min($indentation, 10);
         /* @phpstan-ignore-next-line */
         fwrite($this->handle, implode(array_fill(0, $indentation, "\t")) . $line . $this->lineBreak);
     }

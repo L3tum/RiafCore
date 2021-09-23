@@ -27,44 +27,41 @@ class ContainerCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
+        /** @var ContainerCompilerConfiguration $config */
+        $config = $this->config;
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot());
 
-        if ($this->config instanceof ContainerCompilerConfiguration) {
-            /** @var ContainerCompilerConfiguration $config */
-            $config = $this->config;
-            $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot());
-
-            foreach ($classes as $class) {
-                /* @var ReflectionClass $class */
-                $this->analyzeClass($class);
-            }
-
-            foreach ($config->getAdditionalClasses() as $key => $value) {
-                if (class_exists($value)) {
-                    $this->analyzeClass(new ReflectionClass($value));
-                }
-
-                if ($key !== $value) {
-                    $this->interfaceToClassMapping[$key] = $value;
-                    if (!in_array($key, $this->classToInterfaceMapping[$value], true)) {
-                        $this->classToInterfaceMapping[$value][] = $key;
-                    }
-                }
-            }
-
-            $ownClass = $config->getContainerNamespace() . '\\Container';
-            if (!isset($this->constructionMethods[$ownClass])) {
-                $this->constructionMethods[$ownClass] = '$this';
-
-                if (!isset($this->interfaceToClassMapping[ContainerInterface::class])) {
-                    $this->interfaceToClassMapping[ContainerInterface::class] = $ownClass;
-                    $this->classToInterfaceMapping[$ownClass] = [ContainerInterface::class];
-                }
-            }
-
-            $this->openResultFile($config->getContainerFilepath());
-
-            $this->generateContainer();
+        foreach ($classes as $class) {
+            /* @var ReflectionClass $class */
+            $this->analyzeClass($class);
         }
+
+        foreach ($config->getAdditionalClasses() as $key => $value) {
+            if (class_exists($value)) {
+                $this->analyzeClass(new ReflectionClass($value));
+            }
+
+            if ($key !== $value) {
+                $this->interfaceToClassMapping[$key] = $value;
+                if (!in_array($key, $this->classToInterfaceMapping[$value], true)) {
+                    $this->classToInterfaceMapping[$value][] = $key;
+                }
+            }
+        }
+
+        $ownClass = $config->getContainerNamespace() . '\\Container';
+        if (!isset($this->constructionMethods[$ownClass])) {
+            $this->constructionMethods[$ownClass] = '$this';
+
+            if (!isset($this->interfaceToClassMapping[ContainerInterface::class])) {
+                $this->interfaceToClassMapping[ContainerInterface::class] = $ownClass;
+                $this->classToInterfaceMapping[$ownClass] = [ContainerInterface::class];
+            }
+        }
+
+        $this->openResultFile($config->getContainerFilepath());
+
+        $this->generateContainer();
 
         $this->timing->stop(self::class);
 
