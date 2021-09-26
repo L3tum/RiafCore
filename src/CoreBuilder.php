@@ -27,4 +27,9 @@ class CoreBuilder implements RequestHandlerInterface
     {
         return $this->core->handle($request);
     }
+
+    public function createRequestFromGlobals(): ServerRequestInterface
+    {
+        return $this->core->createRequestFromGlobals();
+    }
 }

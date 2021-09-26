@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Riaf\Compiler\Analyzer;
 
 use Exception;
+use Generator;
 use Iterator;
 use JsonException;
 use ReflectionClass;
@@ -61,12 +62,12 @@ class StandardAnalyzer implements AnalyzerInterface
     }
 
     /**
-     * @return string[]
+     * @return Generator<string, string>
      *
      * @throws JsonException
      * @throws Exception
      */
-    private function getAutoloadNamespaces(string $projectRoot): array
+    private function getAutoloadNamespaces(string $projectRoot): Generator
     {
         $composerJson = "$projectRoot/composer.json";
 
@@ -94,7 +95,17 @@ class StandardAnalyzer implements AnalyzerInterface
             return [];
         }
 
-        return $autoload['psr-4'];
+        $psr4 = $autoload['psr-4'];
+
+        foreach ($psr4 as $namespace => $directory) {
+            if (is_array($directory)) {
+                foreach ($directory as $dir) {
+                    yield $namespace => $dir;
+                }
+            } else {
+                yield $namespace => $directory;
+            }
+        }
     }
 
     /**
