@@ -45,7 +45,7 @@ abstract class AbstractCore
         if ($this->config instanceof ContainerCompilerConfiguration && $this->container === null) {
             $containerClass = '\\' . $this->config->getContainerNamespace() . '\\Container';
             if (class_exists($containerClass)) {
-                /* @psalm-suppress PropertyTypeCoercion Can only be Container */
+                /** @psalm-suppress PropertyTypeCoercion Can only be Container */
                 $this->container = new $containerClass();
             }
         }
@@ -56,7 +56,7 @@ abstract class AbstractCore
         if ($this->config instanceof MiddlewareDispatcherCompilerConfiguration && $this->container !== null) {
             $middlewareDispatcherClass = '\\' . $this->config->getMiddlewareDispatcherNamespace() . '\\MiddlewareDispatcher';
             if (class_exists($middlewareDispatcherClass)) {
-                /* @psalm-suppress PropertyTypeCoercion Can only be RequestHandlerInterface */
+                /** @psalm-suppress PropertyTypeCoercion Can only be RequestHandlerInterface */
                 $this->requestHandler = new $middlewareDispatcherClass($this->container);
             }
         }
@@ -67,7 +67,7 @@ abstract class AbstractCore
         if ($this->config instanceof RouterCompilerConfiguration && $this->requestHandler === null && $this->container !== null) {
             $routerClass = '\\' . $this->config->getRouterNamespace() . '\\Router';
             if (class_exists($routerClass)) {
-                /* @psalm-suppress PropertyTypeCoercion Can only be RequestHandlerInterface */
+                /** @psalm-suppress PropertyTypeCoercion Can only be RequestHandlerInterface */
                 $this->requestHandler = new $routerClass($this->container);
             }
         }

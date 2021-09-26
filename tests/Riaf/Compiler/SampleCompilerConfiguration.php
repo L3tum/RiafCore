@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler;
 
+use Riaf\Compiler\Analyzer\AnalyzerInterface;
+use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Compiler\Configuration\ContainerCompilerConfiguration;
 use Riaf\Compiler\Configuration\MiddlewareDispatcherCompilerConfiguration;
 use Riaf\Compiler\Configuration\PreloadCompilerConfiguration;
@@ -42,6 +44,7 @@ class SampleCompilerConfiguration extends CompilerConfiguration implements Prelo
     {
         return [
             CoreEvent::class => BootEvent::class,
+            AnalyzerInterface::class => StandardAnalyzer::class,
         ];
     }
 

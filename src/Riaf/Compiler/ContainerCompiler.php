@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler;
 
+use Attribute;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use Riaf\Compiler\Configuration\ContainerCompilerConfiguration;
+use RuntimeException;
+use Throwable;
 
 class ContainerCompiler extends BaseCompiler
 {
@@ -18,6 +21,9 @@ class ContainerCompiler extends BaseCompiler
 
     /** @var string[] */
     private array $constructionMethods = [];
+
+    /** @var string[] */
+    private array $needsSeparateMethod = [];
 
     public function supportsCompilation(): bool
     {
@@ -49,13 +55,29 @@ class ContainerCompiler extends BaseCompiler
             }
         }
 
+        // Add itself to Container
         $ownClass = $config->getContainerNamespace() . '\\Container';
-        if (!isset($this->constructionMethods[$ownClass])) {
+        if (!isset($this->classToInterfaceMapping[$ownClass]) && !isset($this->constructionMethods[$ownClass])) {
             $this->constructionMethods[$ownClass] = '$this';
 
             if (!isset($this->interfaceToClassMapping[ContainerInterface::class])) {
                 $this->interfaceToClassMapping[ContainerInterface::class] = $ownClass;
                 $this->classToInterfaceMapping[$ownClass] = [ContainerInterface::class];
+            }
+        }
+
+        // Add current Config to Container
+        $configClass = (new ReflectionClass($config))->getName();
+        if (
+            !(new ReflectionClass($config))->isAnonymous()
+            && !isset($this->classToInterfaceMapping[$configClass])
+            && !isset($this->constructionMethods[$configClass])
+        ) {
+            $this->constructionMethods[$configClass] = "new $configClass()";
+
+            if (!isset($this->interfaceToClassMapping[CompilerConfiguration::class])) {
+                $this->interfaceToClassMapping[CompilerConfiguration::class] = $configClass;
+                $this->classToInterfaceMapping[$configClass] = [CompilerConfiguration::class];
             }
         }
 
@@ -73,11 +95,22 @@ class ContainerCompiler extends BaseCompiler
      */
     private function analyzeClass(ReflectionClass $class): void
     {
-        if ($class->isInterface() || $class->isAbstract()) {
+        $className = $class->getName();
+
+        // Skip Abstract Classes, non-userdefined, anonymous, attributes, exceptions and those we already analyzed
+        if (
+            $class->isAbstract()
+            || $class->isInterface()
+            || !$class->isUserDefined()
+            || $class->isAnonymous()
+            || count($class->getAttributes(Attribute::class)) > 0
+            || $class->implementsInterface(Throwable::class)
+            || isset($this->classToInterfaceMapping[$className])
+        ) {
             return;
         }
 
-        $className = $class->getName();
+        $this->classToInterfaceMapping[$className] = [];
 
         // Record class as implementation for interface
         foreach ($class->getInterfaces() as $interface) {
@@ -86,11 +119,6 @@ class ContainerCompiler extends BaseCompiler
             }
 
             $interfaceName = $interface->getName();
-
-            if (!isset($this->classToInterfaceMapping[$className])) {
-                $this->classToInterfaceMapping[$className] = [];
-            }
-
             $this->classToInterfaceMapping[$className][] = $interfaceName;
 
             if (!isset($this->interfaceToClassMapping[$interfaceName])) {
@@ -100,7 +128,133 @@ class ContainerCompiler extends BaseCompiler
             }
         }
 
-        // Autowiring
+        // Walk the parent-tree upwards to analyze those
+        $extensionClass = $class->getParentClass();
+        while ($extensionClass !== null && $extensionClass !== false) {
+            $this->analyzeClass($extensionClass);
+
+            if ($extensionClass->isInterface() || $extensionClass->isAbstract()) {
+                if ($extensionClass->isUserDefined()) {
+                    $extensionClassName = $extensionClass->getName();
+                    $this->classToInterfaceMapping[$className][] = $extensionClassName;
+                    if (!isset($this->interfaceToClassMapping[$extensionClassName])) {
+                        $this->interfaceToClassMapping[$extensionClassName] = $className;
+                    } else {
+                        $this->interfaceToClassMapping[$extensionClassName] = false;
+                    }
+                }
+            }
+
+            $extensionClass = $extensionClass->getParentClass();
+        }
+
+        // Check for Constructor Params that we may not have recorded yet
+        $constructor = $class->getConstructor();
+        if ($constructor !== null) {
+            foreach ($constructor->getParameters() as $parameter) {
+                $type = $this->getReflectionClassFromReflectionType($parameter->getType());
+
+                if ($type !== null) {
+                    $this->analyzeClass($type);
+                }
+            }
+        }
+    }
+
+    private function generateContainer(): void
+    {
+        $this->generateHeader();
+
+        $availableServices = $this->generateContainerGetter();
+
+        $this->generateContainerHasser($availableServices);
+
+        $this->generateSeparateMethods();
+
+        $this->writeLine('}');
+    }
+
+    private function generateHeader(): void
+    {
+        /** @var ContainerCompilerConfiguration $config */
+        $config = $this->config;
+        $namespace = $config->getContainerNamespace();
+        $this->writeLine('<?php');
+        $this->writeLine(
+            <<<HEADER
+namespace $namespace;
+
+class Container implements \Psr\Container\ContainerInterface
+{
+    /** @var array<string, object> */
+    private array \$instantiatedServices = [];
+
+    /** @throws \Psr\Container\NotFoundExceptionInterface */
+    public function get(string \$id)
+    {
+        return \$this->instantiatedServices[\$id] ?? \$this->instantiatedServices[\$id] = match (\$id){
+HEADER
+        );
+    }
+
+    /**
+     * @return string[]
+     */
+    private function generateContainerGetter(): array
+    {
+        /** @var string[] $availableServices */
+        $availableServices = [];
+
+        foreach ($this->classToInterfaceMapping as $className => $interfaceNames) {
+            $method = $this->generateAutowiredConstructor($className);
+
+            foreach ($interfaceNames as $interfaceName) {
+                if ($interfaceName !== $className && $this->interfaceToClassMapping[$interfaceName] === $className) {
+                    if (isset($this->needsSeparateMethod[$className])) {
+                        $normalizedName = $this->normalizeClassNameToMethodName($className);
+                        $this->writeLine(
+                            "\"$interfaceName\" => \$this->instantiatedServices[\"$className\"] ?? \$this->$normalizedName(),",
+                            3
+                        );
+                    } else {
+                        $this->writeLine(
+                            "\"$interfaceName\" => \$this->instantiatedServices[\"$className\"] ?? \$this->instantiatedServices[\"$className\"] = $method,",
+                            3
+                        );
+                    }
+
+                    $availableServices[] = $interfaceName;
+                }
+            }
+
+            $this->writeLine("\"$className\" => $method,", 3);
+            $availableServices[] = $className;
+        }
+
+        $this->writeLine(
+            'default => throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException($id)',
+            3
+        );
+
+        $this->writeLine('};', 2);
+        $this->writeLine('}', 1);
+        $this->writeLine();
+
+        return $availableServices;
+    }
+
+    private function generateAutowiredConstructor(string $className): string
+    {
+        if (!class_exists($className)) {
+            if (isset($this->constructionMethods[$className])) {
+                return $this->constructionMethods[$className];
+            }
+            // TODO: Exception
+            throw new RuntimeException($className);
+        }
+
+        $class = new ReflectionClass($className);
+
         $parameters = [];
         $constructor = $class->getConstructor();
 
@@ -118,12 +272,20 @@ class ContainerCompiler extends BaseCompiler
                     continue;
                 }
 
-                $getter = "$parameter->name: (\$this->has(\"$parameter->name\") ? \$this->get(\"$parameter->name\")";
-                $typeClass = $this->getReflectionClassFromReflectionType($parameter->getType());
-                if ($typeClass !== null) {
-                    $getter .= " : \$this->get(\"$typeClass->name\"))";
+                if (isset($this->classToInterfaceMapping[$parameter->name])) {
+                    $normalizedName = $this->normalizeClassNameToMethodName($parameter->name);
+                    $getter = "$parameter->name: \$this->instantiatedServices[\"$parameter->name\"] ?? \$this->$normalizedName()";
+                    $this->needsSeparateMethod[] = $parameter->name;
                 } else {
-                    $getter .= " : throw new \Riaf\PsrExtensions\Container\IdNotFoundException(\"$parameter->name\"))";
+                    $typeClass = $this->getReflectionClassFromReflectionType($parameter->getType());
+
+                    if ($typeClass !== null && (isset($this->classToInterfaceMapping[$typeClass->name]) || isset($this->interfaceToClassMapping[$typeClass->name]))) {
+                        $normalizedName = $this->normalizeClassNameToMethodName($typeClass->name);
+                        $getter = "$parameter->name: \$this->instantiatedServices[\"$typeClass->name\"] ?? \$this->$normalizedName()";
+                        $this->needsSeparateMethod[] = $typeClass->name;
+                    } else {
+                        $getter = "$parameter->name: throw new \Riaf\PsrExtensions\Container\IdNotFoundException(\"$parameter->name\")";
+                    }
                 }
 
                 $parameters[] = $getter;
@@ -131,82 +293,18 @@ class ContainerCompiler extends BaseCompiler
         }
 
         $parameterString = implode(', ', $parameters);
-        $this->constructionMethods[$className] =
+        $method =
             <<<FUNCTION
 new \\$className($parameterString)
 FUNCTION;
+        $this->constructionMethods[$className] = $method;
+
+        return $method;
     }
 
-    private function generateContainer(): void
+    private function normalizeClassNameToMethodName(string $className): string
     {
-        $this->generateHeader();
-
-        $availableServices = $this->generateContainerGetter();
-
-        $this->generateContainerHasser($availableServices);
-
-        $this->writeLine('}');
-    }
-
-    private function generateHeader(): void
-    {
-        /** @var ContainerCompilerConfiguration $config */
-        $config = $this->config;
-        $namespace = $config->getContainerNamespace();
-        $this->writeLine('<?php');
-        $this->writeLine(
-            <<<HEADER
-namespace $namespace;
-
-use Psr\Container\ContainerInterface;
-
-class Container implements ContainerInterface
-{
-    /** @var array<string, object> */
-    private array \$instantiatedServices = [];
-
-    public function get(string \$id)
-    {
-        return \$this->instantiatedServices[\$id] ?? \$this->instantiatedServices[\$id] = match (\$id){
-HEADER
-        );
-    }
-
-    /**
-     * @return string[]
-     */
-    private function generateContainerGetter(): array
-    {
-        /** @var string[] $availableServices */
-        $availableServices = [];
-
-        foreach ($this->constructionMethods as $key => $method) {
-            $interfaces = $this->classToInterfaceMapping[$key] ?? [];
-
-            foreach ($interfaces as $interface) {
-                if ($interface !== $key && $this->interfaceToClassMapping[$interface] === $key) {
-                    $this->writeLine(
-                        "\"$interface\" => \$this->instantiatedServices[\"$key\"] ?? \$this->instantiatedServices[\"$key\"] = $method,",
-                        3
-                    );
-                    $availableServices[] = $interface;
-                }
-            }
-
-            $this->writeLine("\"$key\" => $method,", 3);
-            $availableServices[] = $key;
-        }
-
-        $this->writeLine(
-            'default => throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException($id)',
-            3
-        );
-
-        $this->writeLine('};', 2);
-        $this->writeLine('}', 1);
-        $this->writeLine();
-
-        return $availableServices;
+        return str_replace('\\', '_', $className);
     }
 
     /**
@@ -227,5 +325,42 @@ HEADER
         $this->writeLine('{', 1);
         $this->writeLine('return isset(self::AVAILABLE_SERVICES[$id]);', 2);
         $this->writeLine('}', 1);
+    }
+
+    private function generateSeparateMethods(): void
+    {
+        $generated = [];
+
+        foreach ($this->needsSeparateMethod as $className) {
+            if (isset($generated[$className])) {
+                continue;
+            }
+
+            $throws = false;
+
+            if (!isset($this->classToInterfaceMapping[$className])) {
+                if (isset($this->interfaceToClassMapping[$className]) && $this->interfaceToClassMapping[$className]) {
+                    $method = $this->generateAutowiredConstructor($this->interfaceToClassMapping[$className]);
+                } else {
+                    $throws = true;
+                    $method = "throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException(\"$className\")";
+                }
+            } else {
+                $method = $this->generateAutowiredConstructor($className);
+            }
+
+            $normalizedName = $this->normalizeClassNameToMethodName($className);
+
+            if ($throws) {
+                $this->writeLine('/** @throws \\Psr\\Container\\NotFoundExceptionInterface */', 1);
+            }
+
+            $this->writeLine("public function $normalizedName(): \\$className", 1);
+            $this->writeLine('{', 1);
+            $this->writeLine("return \$this->instantiatedServices[\"$className\"] = $method;", 2);
+            $this->writeLine('}', 1);
+
+            $generated[$className] = true;
+        }
     }
 }
