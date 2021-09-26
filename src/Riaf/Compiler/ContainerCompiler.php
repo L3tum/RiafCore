@@ -52,6 +52,10 @@ class ContainerCompiler extends BaseCompiler
                 if (!in_array($key, $this->classToInterfaceMapping[$value], true)) {
                     $this->classToInterfaceMapping[$value][] = $key;
                 }
+
+                if (class_exists($key)) {
+                    $this->analyzeClass(new ReflectionClass($key));
+                }
             }
         }
 
