@@ -50,7 +50,7 @@ class SampleCompilerConfiguration extends CompilerConfiguration implements Prelo
 
     public function getAdditionalPreloadedFiles(): array
     {
-        return ['bin/compile'];
+        return ['bin/compile', "src/Core.php"];
     }
 
     public function getMiddlewareDispatcherNamespace(): string

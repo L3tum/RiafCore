@@ -17,7 +17,7 @@ class StandardAnalyzerTest extends TestCase
 
     public function testReturnsReflectionClasses(): void
     {
-        $projectRoot = dirname(__DIR__, 4);
+        $projectRoot = dirname(__DIR__, 3);
         $classes = $this->analyzer->getUsedClasses($projectRoot);
 
         foreach ($classes as $class) {
@@ -27,7 +27,7 @@ class StandardAnalyzerTest extends TestCase
 
     public function testReturnsAtLeastClasses(): void
     {
-        $projectRoot = dirname(__DIR__, 4);
+        $projectRoot = dirname(__DIR__, 3);
         $classes = $this->analyzer->getUsedClasses($projectRoot);
         $classesToFind = [
             Core::class => false,
@@ -49,7 +49,7 @@ class StandardAnalyzerTest extends TestCase
 
     public function testReturnsInterfaces(): void
     {
-        $projectRoot = dirname(__DIR__, 4);
+        $projectRoot = dirname(__DIR__, 3);
         $classes = $this->analyzer->getUsedClasses($projectRoot);
         $foundInterface = false;
 
@@ -66,7 +66,7 @@ class StandardAnalyzerTest extends TestCase
 
     public function testReturnsAbstractClasses(): void
     {
-        $projectRoot = dirname(__DIR__, 4);
+        $projectRoot = dirname(__DIR__, 3);
         $classes = $this->analyzer->getUsedClasses($projectRoot);
         $foundAbstractClass = false;
 

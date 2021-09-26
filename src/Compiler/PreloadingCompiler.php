@@ -42,11 +42,11 @@ class PreloadingCompiler extends BaseCompiler
             }
 
             foreach ($config->getAdditionalPreloadedFiles() as $additionalPreloadedFile) {
-                if (!isset($this->preloadedFiles[$additionalPreloadedFile])) {
-                    if (!str_starts_with($additionalPreloadedFile, '/')) {
-                        $additionalPreloadedFile = $this->config->getProjectRoot() . '/' . $additionalPreloadedFile;
-                    }
+                if (!str_starts_with($additionalPreloadedFile, $this->config->getProjectRoot())) {
+                    $additionalPreloadedFile = $this->config->getProjectRoot() . '/' . $additionalPreloadedFile;
+                }
 
+                if (!isset($this->preloadedFiles[$additionalPreloadedFile])) {
                     $this->preloadedFiles[$additionalPreloadedFile] = true;
                     $this->writeLine("opcache_compile_file(\"$additionalPreloadedFile\");");
                 }

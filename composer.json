@@ -34,12 +34,12 @@
   },
   "autoload": {
     "psr-4": {
-      "Riaf\\": "src/Riaf/"
+      "Riaf\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Riaf\\": "tests/Riaf/"
+      "Riaf\\": "tests/"
     }
   },
   "scripts": {
