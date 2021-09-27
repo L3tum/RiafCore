@@ -9,6 +9,9 @@ use Iterator;
 use ReflectionClass;
 use RuntimeException;
 
+/**
+ * @codeCoverageIgnore
+ */
 class ClassLoaderAnalyzer implements AnalyzerInterface
 {
     public function getUsedClasses(string $projectRoot): Iterator

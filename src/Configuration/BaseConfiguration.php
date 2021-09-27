@@ -2,14 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Riaf\Compiler;
+namespace Riaf\Configuration;
 
 use function dirname;
 use LogicException;
 use ReflectionObject;
+use Riaf\Compiler\BaseCompiler;
 use RuntimeException;
 
-abstract class CompilerConfiguration
+abstract class BaseConfiguration
 {
     protected ?string $projectDir = null;
 

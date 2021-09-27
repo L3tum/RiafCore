@@ -9,7 +9,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Riaf\Compiler\CompilerConfiguration;
+use Riaf\Configuration\BaseConfiguration;
 
 class CoreBuilder implements RequestHandlerInterface
 {
@@ -18,7 +18,7 @@ class CoreBuilder implements RequestHandlerInterface
     /**
      * @throws Exception
      */
-    public function __construct(protected CompilerConfiguration $config, protected ?ContainerInterface $container = null)
+    public function __construct(protected BaseConfiguration $config, protected ?ContainerInterface $container = null)
     {
         $this->core = $config->isDevelopmentMode() ? new RuntimeCore($config, $container) : new Core($config, $container);
     }

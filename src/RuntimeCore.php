@@ -8,10 +8,10 @@ use Exception;
 use Psr\Container\ContainerInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Compiler\BaseCompiler;
-use Riaf\Compiler\CompilerConfiguration;
 use Riaf\Compiler\ContainerCompiler;
 use Riaf\Compiler\MiddlewareDispatcherCompiler;
 use Riaf\Compiler\RouterCompiler;
+use Riaf\Configuration\BaseConfiguration;
 use Riaf\Metrics\Clock\SystemClock;
 use Riaf\Metrics\Timing;
 
@@ -27,7 +27,7 @@ class RuntimeCore extends Core
     /**
      * @throws Exception
      */
-    public function __construct(CompilerConfiguration $config, ?ContainerInterface $container = null)
+    public function __construct(BaseConfiguration $config, ?ContainerInterface $container = null)
     {
         $compilers = array_merge($config->getAdditionalCompilers(), self::COMPILERS);
         $timing = new Timing(new SystemClock());

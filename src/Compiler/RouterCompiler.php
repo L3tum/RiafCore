@@ -9,7 +9,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionParameter;
-use Riaf\Compiler\Configuration\RouterCompilerConfiguration;
+use Riaf\Configuration\RouterCompilerConfiguration;
 use Riaf\Routing\Route;
 
 class RouterCompiler extends BaseCompiler

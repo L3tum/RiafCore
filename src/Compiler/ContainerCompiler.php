@@ -7,7 +7,8 @@ namespace Riaf\Compiler;
 use Attribute;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
-use Riaf\Compiler\Configuration\ContainerCompilerConfiguration;
+use Riaf\Configuration\BaseConfiguration;
+use Riaf\Configuration\ContainerCompilerConfiguration;
 use RuntimeException;
 use Throwable;
 
@@ -79,9 +80,9 @@ class ContainerCompiler extends BaseCompiler
         ) {
             $this->constructionMethods[$configClass] = "new $configClass()";
 
-            if (!isset($this->interfaceToClassMapping[CompilerConfiguration::class])) {
-                $this->interfaceToClassMapping[CompilerConfiguration::class] = $configClass;
-                $this->classToInterfaceMapping[$configClass] = [CompilerConfiguration::class];
+            if (!isset($this->interfaceToClassMapping[BaseConfiguration::class])) {
+                $this->interfaceToClassMapping[BaseConfiguration::class] = $configClass;
+                $this->classToInterfaceMapping[$configClass] = [BaseConfiguration::class];
             }
         }
 

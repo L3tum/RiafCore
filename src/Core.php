@@ -11,7 +11,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Riaf\Compiler\CompilerConfiguration;
+use Riaf\Configuration\BaseConfiguration;
 use Riaf\Events\BootEvent;
 use Riaf\Events\RequestEvent;
 use Riaf\Events\ResponseEvent;
@@ -27,11 +27,11 @@ class Core extends AbstractCore implements RequestHandlerInterface
     protected LoggerInterface $logger;
 
     /**
-     * @param CompilerConfiguration   $config    The config
+     * @param BaseConfiguration       $config    The config
      * @param ContainerInterface|null $container The container to fetch services from
      */
     public function __construct(
-        CompilerConfiguration $config,
+        BaseConfiguration $config,
         ?ContainerInterface $container = null,
     ) {
         parent::__construct($config, $container);

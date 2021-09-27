@@ -6,12 +6,13 @@ namespace Riaf\Compiler;
 
 use Psr\Http\Server\MiddlewareInterface;
 use ReflectionClass;
-use Riaf\Compiler\Configuration\MiddlewareDispatcherCompilerConfiguration;
+use Riaf\Configuration\MiddlewareDefinition;
+use Riaf\Configuration\MiddlewareDispatcherCompilerConfiguration;
 use Riaf\PsrExtensions\Middleware\Middleware;
-use Riaf\PsrExtensions\Middleware\MiddlewareHint;
 
 class MiddlewareDispatcherCompiler extends BaseCompiler
 {
+    // TODO: Write Tests
     public function compile(): bool
     {
         $this->timing->start(self::class);
@@ -20,6 +21,7 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
         $config = $this->config;
 
         $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot());
+        /** @var MiddlewareDefinition[] $middlewares */
         $middlewares = [];
 
         foreach ($classes as $class) {
@@ -38,29 +40,14 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
                 if ($definition !== null) {
                     $middlewares[] = $definition;
                 }
-            } elseif ($additionalMiddleware instanceof MiddlewareHint) {
-                if (class_exists($additionalMiddleware->getClass())) {
-                    $class = new ReflectionClass($additionalMiddleware->getClass());
-                    $definition = $this->getMiddlewareDefinition($class);
-
-                    if ($definition !== null) {
-                        $definition[0] = $additionalMiddleware->getPriority();
-                        $middlewares[] = $definition;
-                    }
-                }
+            } elseif ($additionalMiddleware instanceof MiddlewareDefinition) {
+                $middlewares[] = $additionalMiddleware;
             }
         }
 
-        usort($middlewares, static function (array $a, array $b) {
-            if ($a[0] > $b[0]) {
-                return -1;
-            }
-
-            if ($a[0] < $b[0]) {
-                return 1;
-            }
-
-            return 0;
+        usort($middlewares, static function (MiddlewareDefinition $a, MiddlewareDefinition $b) {
+            // Sorting array by decreasing priority
+            return ($a->getPriority() <=> $b->getPriority()) * -1;
         });
 
         $this->openResultFile($config->getMiddlewareDispatcherFilepath());
@@ -74,10 +61,8 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
 
     /**
      * @param ReflectionClass<object> $middleware
-     *
-     * @return array{0: int, 1: ReflectionClass<MiddlewareInterface>}|null
      */
-    private function getMiddlewareDefinition(ReflectionClass $middleware): ?array
+    private function getMiddlewareDefinition(ReflectionClass $middleware): ?MiddlewareDefinition
     {
         if (!$middleware->implementsInterface(MiddlewareInterface::class)) {
             return null;
@@ -94,11 +79,11 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
         /** @var Middleware $instance */
         $instance = $attribute->newInstance();
 
-        return [$instance->getPriority(), $middleware];
+        return new MiddlewareDefinition($middleware->getName(), $instance->getPriority());
     }
 
     /**
-     * @param array<int, array{0: int, 1: ReflectionClass<object>}> $middlewares
+     * @param MiddlewareDefinition[] $middlewares
      */
     private function generateMiddlewareDispatcher(string $namespace, array $middlewares): void
     {
@@ -123,8 +108,7 @@ HEADER
         );
 
         foreach ($middlewares as $middleware) {
-            /** @var ReflectionClass<object> $class */
-            $class = $middleware[1];
+            $class = $middleware->getReflectionClass();
             $this->writeLine("\"$class->name\",", 2);
         }
 

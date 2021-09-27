@@ -11,7 +11,6 @@
         <ignoreFiles>
             <directory name="vendor" />
             <directory name="var" />
-            <file name="src/PsrExtensions/Http/ServerRequestCreator.php"/>
         </ignoreFiles>
     </projectFiles>
 </psalm>

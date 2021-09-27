@@ -1,4 +1,3 @@
 parameters:
 	excludePaths:
-		- src/PsrExtensions/Http/ServerRequestCreator.php
 		- src/Compiler/Analyzer/ClassLoaderAnalyzer.php

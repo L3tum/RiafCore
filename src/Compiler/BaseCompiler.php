@@ -10,6 +10,7 @@ use ReflectionException;
 use ReflectionNamedType;
 use ReflectionType;
 use Riaf\Compiler\Analyzer\AnalyzerInterface;
+use Riaf\Configuration\BaseConfiguration;
 use Riaf\Metrics\Timing;
 use RuntimeException;
 
@@ -22,7 +23,7 @@ abstract class BaseCompiler
      */
     private $handle = null;
 
-    public function __construct(protected AnalyzerInterface $analyzer, protected Timing $timing, protected CompilerConfiguration $config)
+    public function __construct(protected AnalyzerInterface $analyzer, protected Timing $timing, protected BaseConfiguration $config)
     {
     }
 

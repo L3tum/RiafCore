@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace Riaf;
 
+use Nyholm\Psr7Server\ServerRequestCreator;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Riaf\Compiler\CompilerConfiguration;
-use Riaf\Compiler\Configuration\ContainerCompilerConfiguration;
-use Riaf\Compiler\Configuration\MiddlewareDispatcherCompilerConfiguration;
-use Riaf\Compiler\Configuration\RouterCompilerConfiguration;
-use Riaf\PsrExtensions\Http\ServerRequestCreator;
+use Riaf\Configuration\BaseConfiguration;
+use Riaf\Configuration\ContainerCompilerConfiguration;
+use Riaf\Configuration\MiddlewareDispatcherCompilerConfiguration;
+use Riaf\Configuration\RouterCompilerConfiguration;
 use RuntimeException;
 
 abstract class AbstractCore
 {
     protected ?RequestHandlerInterface $requestHandler = null;
 
-    public function __construct(protected CompilerConfiguration $config, protected ?ContainerInterface $container = null)
+    public function __construct(protected BaseConfiguration $config, protected ?ContainerInterface $container = null)
     {
         $this->fetchContainer();
         $this->fetchMiddlewareDispatcher();
@@ -73,6 +73,9 @@ abstract class AbstractCore
         }
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     public function createRequestFromGlobals(): ServerRequestInterface
     {
         /**

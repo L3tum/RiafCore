@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Riaf\Compiler\Configuration;
-
-use Riaf\PsrExtensions\Middleware\MiddlewareHint;
+namespace Riaf\Configuration;
 
 interface MiddlewareDispatcherCompilerConfiguration
 {
@@ -18,7 +16,7 @@ interface MiddlewareDispatcherCompilerConfiguration
      *
      * E.g. return [MyMiddleware::class]
      *
-     * @return string[]|MiddlewareHint[]
+     * @return string[]|MiddlewareDefinition[]
      * @noinspection PhpDocSignatureInspection
      */
     public function getAdditionalMiddlewares(): array;

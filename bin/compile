@@ -5,12 +5,12 @@ declare(strict_types=1);
 
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Compiler\BaseCompiler;
-use Riaf\Compiler\CompilerConfiguration;
 use Riaf\Compiler\CompilerLoader;
 use Riaf\Compiler\ContainerCompiler;
 use Riaf\Compiler\MiddlewareDispatcherCompiler;
 use Riaf\Compiler\PreloadingCompiler;
 use Riaf\Compiler\RouterCompiler;
+use Riaf\Configuration\BaseConfiguration;
 use Riaf\Metrics\Clock\SystemClock;
 use Riaf\Metrics\Timing;
 
@@ -40,8 +40,8 @@ if (!class_exists($configClass)) {
 
 $config = new $configClass();
 
-if (!$config instanceof CompilerConfiguration) {
-    throw new RuntimeException("Config does not extend " . CompilerConfiguration::class);
+if (!$config instanceof BaseConfiguration) {
+    throw new RuntimeException("Config does not extend " . BaseConfiguration::class);
 }
 
 $analyzer = new StandardAnalyzer($timing);

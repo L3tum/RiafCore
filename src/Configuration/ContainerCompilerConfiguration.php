@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Riaf\Compiler\Configuration;
+namespace Riaf\Configuration;
 
 interface ContainerCompilerConfiguration
 {

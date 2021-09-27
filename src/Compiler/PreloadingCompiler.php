@@ -6,7 +6,7 @@ namespace Riaf\Compiler;
 
 use Generator;
 use ReflectionClass;
-use Riaf\Compiler\Configuration\PreloadCompilerConfiguration;
+use Riaf\Configuration\PreloadCompilerConfiguration;
 
 class PreloadingCompiler extends BaseCompiler
 {

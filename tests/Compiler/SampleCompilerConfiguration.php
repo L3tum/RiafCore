@@ -6,14 +6,15 @@ namespace Riaf\Compiler;
 
 use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
-use Riaf\Compiler\Configuration\ContainerCompilerConfiguration;
-use Riaf\Compiler\Configuration\MiddlewareDispatcherCompilerConfiguration;
-use Riaf\Compiler\Configuration\PreloadCompilerConfiguration;
-use Riaf\Compiler\Configuration\RouterCompilerConfiguration;
+use Riaf\Configuration\BaseConfiguration;
+use Riaf\Configuration\ContainerCompilerConfiguration;
+use Riaf\Configuration\MiddlewareDispatcherCompilerConfiguration;
+use Riaf\Configuration\PreloadCompilerConfiguration;
+use Riaf\Configuration\RouterCompilerConfiguration;
 use Riaf\Events\BootEvent;
 use Riaf\Events\CoreEvent;
 
-class SampleCompilerConfiguration extends CompilerConfiguration implements PreloadCompilerConfiguration, ContainerCompilerConfiguration, RouterCompilerConfiguration, MiddlewareDispatcherCompilerConfiguration
+class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCompilerConfiguration, ContainerCompilerConfiguration, RouterCompilerConfiguration, MiddlewareDispatcherCompilerConfiguration
 {
     public function getContainerNamespace(): string
     {
@@ -50,7 +51,7 @@ class SampleCompilerConfiguration extends CompilerConfiguration implements Prelo
 
     public function getAdditionalPreloadedFiles(): array
     {
-        return ['bin/compile', "src/Core.php"];
+        return ['bin/compile', 'src/Core.php'];
     }
 
     public function getMiddlewareDispatcherNamespace(): string
