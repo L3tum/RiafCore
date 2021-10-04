@@ -11,7 +11,6 @@ use Nyholm\Psr7\ServerRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -22,27 +21,14 @@ use Riaf\Metrics\Timing;
 use Riaf\PsrExtensions\Middleware\Middleware;
 use Riaf\Routing\Route;
 
-/**
- * @runTestsInSeparateProcesses
- */
 class RouterCompilerTest extends TestCase
 {
-    private MockObject|AnalyzerInterface $analyzer;
+    private static $mockingClass;
 
-    private $mockingClass;
-
-    private SampleCompilerConfiguration $config;
-
-    private RouterCompiler $compiler;
-
-    /**
-     * @var MockObject|RequestHandlerInterface
-     */
-    private MockObject|RequestHandlerInterface $requestHandler;
+    private static MockObject|RequestHandlerInterface $requestHandler;
 
     public function testImplementsRequestHandlerInterface(): void
     {
-        $this->compiler->compile();
         $router = $this->getRouter($this->createMock(ContainerInterface::class));
         self::assertInstanceOf(MiddlewareInterface::class, $router);
         self::assertInstanceOf(RequestHandlerInterface::class, $router);
@@ -51,201 +37,174 @@ class RouterCompilerTest extends TestCase
         self::assertNotEmpty((new ReflectionClass($router))->getAttributes(Middleware::class));
     }
 
-    /**
-     * @noinspection PhpFullyQualifiedNameUsageInspection
-     */
     private function getRouter(ContainerInterface $container): MiddlewareInterface
     {
-        $stream = $this->config->getFileHandle($this->compiler);
-        fseek($stream, 0);
-        $content = stream_get_contents($stream);
-        eval('?>' . $content);
-
+        /** @noinspection PhpIncompatibleReturnTypeInspection */
+        /** @noinspection PhpUndefinedClassInspection */
+        /** @noinspection PhpFullyQualifiedNameUsageInspection */
         return new \Riaf\Router($container);
     }
 
     public function testCallCorrectShallowHandler(): void
     {
-        $this->compiler->compile();
-
         $container = $this->createMock(ContainerInterface::class);
-        $container->expects($this->once())->method('get')->willReturn($this->mockingClass);
+        $container->expects($this->once())->method('get')->willReturn(self::$mockingClass);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals('Hey', (string) $response->getBody());
     }
 
     public function testCallCorrectDeepHandler(): void
     {
-        $this->compiler->compile();
-
         $container = $this->createMock(ContainerInterface::class);
-        $container->expects($this->once())->method('get')->willReturn($this->mockingClass);
+        $container->expects($this->once())->method('get')->willReturn(self::$mockingClass);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/this/is/deep');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals('Bye', (string) $response->getBody());
     }
 
     public function testInjectsRequestIfRequested(): void
     {
-        $this->compiler->compile();
-
         $container = $this->createMock(ContainerInterface::class);
-        $container->expects($this->once())->method('get')->willReturn($this->mockingClass);
+        $container->expects($this->once())->method('get')->willReturn(self::$mockingClass);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/get/request');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals('/get/request', (string) $response->getBody());
     }
 
     public function testInjectsParameterWithoutRequirement(): void
     {
-        $this->compiler->compile();
-
         $container = $this->createMock(ContainerInterface::class);
-        $container->expects($this->once())->method('get')->willReturn($this->mockingClass);
+        $container->expects($this->once())->method('get')->willReturn(self::$mockingClass);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/param/5');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals('5', (string) $response->getBody());
     }
 
     public function testReturns404IfUrlIsTooLongWithParameter(): void
     {
-        $this->compiler->compile();
-
         $responseFactory = new Psr17Factory();
         $container = $this->createMock(ContainerInterface::class);
         $container->expects($this->once())->method('get')->willReturn($responseFactory);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/param/5/this/is/no/match');
-        /** @var ResponseInterface $response */
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals(404, $response->getStatusCode());
     }
 
     public function testInjectsParameterWithRequirement(): void
     {
-        $this->compiler->compile();
-
         $container = $this->createMock(ContainerInterface::class);
-        $container->expects($this->once())->method('get')->willReturn($this->mockingClass);
+        $container->expects($this->once())->method('get')->willReturn(self::$mockingClass);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/param/requirement/5');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals('5', (string) $response->getBody());
     }
 
     public function testReturns404IfRequirementDoesNotMatch(): void
     {
-        $this->compiler->compile();
-
         $responseFactory = new Psr17Factory();
         $container = $this->createMock(ContainerInterface::class);
         $container->expects($this->once())->method('get')->willReturn($responseFactory);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/param/requirement/hello');
-        /** @var ResponseInterface $response */
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals(404, $response->getStatusCode());
     }
 
     public function testInjectsParameterAndRequest(): void
     {
-        $this->compiler->compile();
-
         $container = $this->createMock(ContainerInterface::class);
-        $container->expects($this->once())->method('get')->willReturn($this->mockingClass);
+        $container->expects($this->once())->method('get')->willReturn(self::$mockingClass);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/param/request/5');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals('/param/request/55', (string) $response->getBody());
     }
 
     public function testInjectsMultipleParameterWithoutRequirements(): void
     {
-        $this->compiler->compile();
-
         $container = $this->createMock(ContainerInterface::class);
-        $container->expects($this->once())->method('get')->willReturn($this->mockingClass);
+        $container->expects($this->once())->method('get')->willReturn(self::$mockingClass);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/param/multiple/4/2');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals('42', (string) $response->getBody());
     }
 
     public function testInjectsMultipleParameterWithRequirements(): void
     {
-        $this->compiler->compile();
-
         $container = $this->createMock(ContainerInterface::class);
-        $container->expects($this->once())->method('get')->willReturn($this->mockingClass);
+        $container->expects($this->once())->method('get')->willReturn(self::$mockingClass);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/param/multiple/requirements/4/2');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals('42', (string) $response->getBody());
     }
 
     public function testReturns404IfOneOfRequirementsDoesNotMatch(): void
     {
-        $this->compiler->compile();
-
         $responseFactory = new Psr17Factory();
         $container = $this->createMock(ContainerInterface::class);
         $container->expects($this->exactly(2))->method('get')->willReturn($responseFactory);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/param/multiple/requirements/hello/2');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals(404, $response->getStatusCode());
 
         $request = new ServerRequest('GET', '/param/multiple/requirements/4/hello');
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
         self::assertEquals(404, $response->getStatusCode());
     }
 
     public function testReturns404OnNonMatch(): void
     {
-        $this->compiler->compile();
-
         $responseFactory = new Psr17Factory();
         $container = $this->createMock(ContainerInterface::class);
         $container->expects($this->once())->method('get')->willReturn($responseFactory);
 
         $router = $this->getRouter($container);
         $request = new ServerRequest('GET', '/thisisnomatchforyou');
-        /** @var ResponseInterface $response */
-        $response = $router->process($request, $this->requestHandler);
+        $response = $router->process($request, self::$requestHandler);
 
         self::assertEquals(404, $response->getStatusCode());
     }
 
-    protected function setUp(): void
+    public function setUp(): void
     {
-        $this->config = new class() extends SampleCompilerConfiguration {
+        // Why? Well, setUpBeforeClasses is not counted for coverage..
+        if (class_exists('\\Riaf\\Router', false)) {
+            return;
+        }
+
+        $config = new class() extends SampleCompilerConfiguration {
             private $stream = null;
 
             public function getFileHandle(BaseCompiler $compiler)
@@ -258,8 +217,8 @@ class RouterCompilerTest extends TestCase
             }
         };
 
-        $this->analyzer = $this->createMock(AnalyzerInterface::class);
-        $this->mockingClass = new class() {
+        $analyzer = (new RouterCompilerTest())->createMock(AnalyzerInterface::class);
+        $mockingClass = new class() {
             #[Route('/')]
             public function handle()
             {
@@ -308,10 +267,18 @@ class RouterCompilerTest extends TestCase
                 return new Response(body: $id . $anotherId);
             }
         };
-        $this->analyzer->expects($this->once())->method('getUsedClasses')->with($this->config->getProjectRoot())->willReturn(new ArrayIterator([new ReflectionClass($this->mockingClass)]));
+        $analyzer->expects(self::once())->method('getUsedClasses')->with($config->getProjectRoot())->willReturn(new ArrayIterator([new ReflectionClass($mockingClass)]));
 
-        $this->compiler = new RouterCompiler($this->analyzer, new Timing(new SystemClock()), $this->config);
+        $compiler = new RouterCompiler($analyzer, new Timing(new SystemClock()), $config);
 
-        $this->requestHandler = $this->createMock(RequestHandlerInterface::class);
+        self::$mockingClass = $mockingClass;
+        self::$requestHandler = (new RouterCompilerTest())->createMock(RequestHandlerInterface::class);
+
+        $compiler->compile();
+
+        $stream = $config->getFileHandle($compiler);
+        fseek($stream, 0);
+        $content = stream_get_contents($stream);
+        eval('?>' . $content);
     }
 }

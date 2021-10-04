@@ -4,75 +4,165 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler;
 
+use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
-use Riaf\Events\CoreEvent;
 use Riaf\Metrics\Clock\SystemClock;
 use Riaf\Metrics\Timing;
+use Riaf\PsrExtensions\Container\IdNotFoundException;
+use Riaf\TestCases\Container\DefaultFloatParameter;
+use Riaf\TestCases\Container\DefaultIntegerTestCase;
+use Riaf\TestCases\Container\DefaultStringParameterTestCase;
+use Riaf\TestCases\Container\EnvParameter;
+use Riaf\TestCases\Container\EnvWithDefaultFallbackParameter;
+use Riaf\TestCases\Container\EnvWithFallbackParameter;
+use Riaf\TestCases\Container\InjectedFloatParameter;
+use Riaf\TestCases\Container\InjectedIntegerParameter;
+use Riaf\TestCases\Container\InjectedServiceFallbackParameter;
+use Riaf\TestCases\Container\InjectedServiceParameter;
+use Riaf\TestCases\Container\InjectedServiceSkipParameter;
+use Riaf\TestCases\Container\InjectedStringParameter;
+use Riaf\TestCases\Container\NamedConstantArrayParameter;
+use Riaf\TestCases\Container\NamedConstantInjectedScalarParameter;
+use Riaf\TestCases\Container\NamedConstantScalarParameter;
 
-/**
- * @runTestsInSeparateProcesses
- */
 class ContainerCompilerTest extends TestCase
 {
-    private SampleCompilerConfiguration $config;
-
-    private ContainerCompiler $compiler;
+    private static ContainerInterface $container;
 
     public function testImplementsContainerInterface(): void
     {
-        $this->compiler->compile();
-        $container = $this->getContainer();
-        self::assertInstanceOf(ContainerInterface::class, $container);
+        self::assertInstanceOf(ContainerInterface::class, self::$container);
     }
 
     public function testImplementsContainerInterfaceGetMethod(): void
     {
-        $this->compiler->compile();
-        $container = $this->getContainer();
-        self::assertTrue(method_exists($container, 'get'));
+        self::assertTrue(method_exists(self::$container, 'get'));
     }
 
     public function testImplementsContainerInterfaceHasMethod(): void
     {
-        $this->compiler->compile();
-        $container = $this->getContainer();
-        self::assertTrue(method_exists($container, 'has'));
+        self::assertTrue(method_exists(self::$container, 'has'));
     }
 
     public function testCanGetContainerInterface(): void
     {
-        $this->compiler->compile();
-        /** @var ContainerInterface $container */
-        $container = $this->getContainer();
-
-        self::assertSame($container, $container->get('Riaf\\Container'));
-        self::assertSame($container, $container->get(ContainerInterface::class));
+        self::assertSame(self::$container, self::$container->get('Riaf\\Container'));
+        self::assertSame(self::$container, self::$container->get(ContainerInterface::class));
     }
 
     public function testCanHasContainerInterface(): void
     {
-        $this->compiler->compile();
-        /** @var ContainerInterface $container */
-        $container = $this->getContainer();
-
-        self::assertTrue($container->has('Riaf\\Container'));
-        self::assertTrue($container->has(ContainerInterface::class));
+        self::assertTrue(self::$container->has('Riaf\\Container'));
+        self::assertTrue(self::$container->has(ContainerInterface::class));
     }
 
     public function testMapsAdditionalClasses(): void
     {
-        $this->compiler->compile();
-        /** @var ContainerInterface $container */
-        $container = $this->getContainer();
-
-        self::assertTrue($container->has(CoreEvent::class));
+        self::assertTrue(self::$container->has(StandardAnalyzer::class));
     }
 
-    protected function setUp(): void
+    public function testHandlesDefaultStringParameter(): void
     {
-        $this->config = new class() extends SampleCompilerConfiguration {
+        self::assertEquals('Hello', self::$container->get(DefaultStringParameterTestCase::class)->getName());
+    }
+
+    public function testHandlesInjectedStringParameter(): void
+    {
+        self::assertEquals('Hello', self::$container->get(InjectedStringParameter::class)->getInjectedName());
+    }
+
+    public function testHandlesDefaultIntParameter(): void
+    {
+        self::assertEquals(0, self::$container->get(DefaultIntegerTestCase::class)->getValue());
+    }
+
+    public function testHandlesInjectedIntParameter(): void
+    {
+        self::assertEquals(1, self::$container->get(InjectedIntegerParameter::class)->getInjectedValue());
+    }
+
+    public function testHandlesDefaultFloatParameter(): void
+    {
+        self::assertEquals(0.0, self::$container->get(DefaultFloatParameter::class)->getValue());
+    }
+
+    public function testHandlesInjectedFloatParameter(): void
+    {
+        self::assertEquals(1.0, self::$container->get(InjectedFloatParameter::class)->getInjectedFloat());
+    }
+
+    public function testHandlesEnvParameter(): void
+    {
+        $_SERVER['MY_TEST_VALUE'] = 'Test';
+        self::assertEquals('Test', self::$container->get(EnvParameter::class)->getValue());
+        unset($_SERVER['MY_TEST_VALUE']);
+    }
+
+    public function testHandlesEnvWithFallbackParameter(): void
+    {
+        unset($_SERVER['MY_TEST_VALUE']);
+        self::assertEquals('Fallback', self::$container->get(EnvWithFallbackParameter::class)->getValue());
+    }
+
+    public function testHandlesEnvWithDefaultFallbackParameter(): void
+    {
+        unset($_SERVER['MY_TEST_VALUE']);
+        $this->expectError();
+        self::assertEquals('Default', self::$container->get(EnvWithDefaultFallbackParameter::class)->getValue());
+    }
+
+    public function testHandlesInjectedServiceParameter(): void
+    {
+        self::assertInstanceOf(DefaultFloatParameter::class, self::$container->get(InjectedServiceParameter::class)->getCompiler());
+    }
+
+    public function testHandlesInjectedServiceFallbackParameter(): void
+    {
+        self::assertInstanceOf(DefaultFloatParameter::class, self::$container->get(InjectedServiceFallbackParameter::class)->getCompiler());
+    }
+
+    public function testHandlesInjectedServiceSkipParameter(): void
+    {
+        $this->expectException(IdNotFoundException::class);
+        self::assertIsString(self::$container->get(InjectedServiceSkipParameter::class)->getCompiler());
+    }
+
+    public function testHandlesNamedConstantDefaultScalarParameter(): void
+    {
+        self::assertEquals(NamedConstantScalarParameter::DEFAULT, self::$container->get(NamedConstantScalarParameter::class)->getValue());
+    }
+
+    public function testHandlesNamedConstantDefaultArrayParameter(): void
+    {
+        self::assertEquals(NamedConstantArrayParameter::DEFAULT, self::$container->get(NamedConstantArrayParameter::class)->getValue());
+    }
+
+    public function testHandlesNamedConstantInjectedScalarParameter(): void
+    {
+        self::assertEquals(NamedConstantInjectedScalarParameter::DEFAULT, self::$container->get(NamedConstantInjectedScalarParameter::class)->getValue());
+    }
+
+    public function testHandlesAlias(): void
+    {
+        self::assertInstanceOf(DateTimeImmutable::class, self::$container->get('now'));
+    }
+
+    // TODO: Array Parsing Tests?
+    // TODO: Alias Test ('now' => DateTimeImmutable::class)
+
+    /**
+     * @noinspection PhpFullyQualifiedNameUsageInspection
+     */
+    public function setUp(): void
+    {
+        // Why? Well, setUpBeforeClasses is not counted for coverage..
+        if (class_exists('\\Riaf\\Container', false)) {
+            return;
+        }
+
+        $config = new class() extends SampleCompilerConfiguration {
             private $stream = null;
 
             public function getFileHandle(BaseCompiler $compiler)
@@ -85,19 +175,16 @@ class ContainerCompilerTest extends TestCase
             }
         };
 
-        $this->compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $this->config);
-    }
+        $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler->compile();
 
-    /**
-     * @noinspection PhpFullyQualifiedNameUsageInspection
-     */
-    private function getContainer(): \Riaf\Container
-    {
-        $stream = $this->config->getFileHandle($this->compiler);
+        $stream = $config->getFileHandle($compiler);
         fseek($stream, 0);
         $content = stream_get_contents($stream);
         eval('?>' . $content);
 
-        return new \Riaf\Container();
+        /** @noinspection PhpFieldAssignmentTypeMismatchInspection */
+        /** @noinspection PhpUndefinedClassInspection */
+        self::$container = new \Riaf\Container();
     }
 }

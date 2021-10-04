@@ -9,22 +9,21 @@ use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\ContainerCompilerConfiguration;
+use Riaf\Configuration\ParameterDefinition;
+use Riaf\Configuration\ServiceDefinition;
 use RuntimeException;
 use Throwable;
 
 class ContainerCompiler extends BaseCompiler
 {
-    /** @var array<string, string|false> */
-    private array $interfaceToClassMapping = [];
-
-    /** @var array<string, string[]> */
-    private array $classToInterfaceMapping = [];
-
     /** @var string[] */
-    private array $constructionMethods = [];
+    private array $constructionMethodCache = [];
 
-    /** @var string[] */
-    private array $needsSeparateMethod = [];
+    /** @var array<string, bool> */
+    private array $needsSeparateConstructor = [];
+
+    /** @var array<string, ServiceDefinition|false> */
+    private array $services = [];
 
     public function supportsCompilation(): bool
     {
@@ -36,54 +35,79 @@ class ContainerCompiler extends BaseCompiler
         $this->timing->start(self::class);
         /** @var ContainerCompilerConfiguration $config */
         $config = $this->config;
-        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot());
 
-        foreach ($classes as $class) {
+        // First collect all project-related classes
+        foreach ($this->analyzer->getUsedClasses($this->config->getProjectRoot()) as $class) {
             /* @var ReflectionClass $class */
             $this->analyzeClass($class);
         }
 
+        // Then do a first look-over for ServiceDefinitions
         foreach ($config->getAdditionalClasses() as $key => $value) {
-            if (class_exists($value)) {
-                $this->analyzeClass(new ReflectionClass($value));
-            }
+            if ($value instanceof ServiceDefinition) {
+                $className = $value->getClassName();
+                $this->services[$className] = $value;
 
-            if ($key !== $value) {
-                $this->interfaceToClassMapping[$key] = $value;
-                if (!in_array($key, $this->classToInterfaceMapping[$value], true)) {
-                    $this->classToInterfaceMapping[$value][] = $key;
+                if ($key !== $className) {
+                    $this->services[$key] = $value;
                 }
 
-                if (class_exists($key)) {
-                    $this->analyzeClass(new ReflectionClass($key));
+                // Go over the defined parameters
+                // And for each parameter:
+                //      1. Check if it has been recorded as a service
+                //      2. Add the parameter to the list for separate methods
+                //      3. Check the fallback
+                $parameters = $value->getParameters();
+                foreach ($parameters as $parameter) {
+                    while ($parameter !== null) {
+                        if ($parameter->isInjected()) {
+                            if (class_exists($parameter->getValue())) {
+                                /** @noinspection PhpUnhandledExceptionInspection */
+                                $this->analyzeClass(new ReflectionClass($parameter->getValue()));
+                            }
+
+                            $this->needsSeparateConstructor[$parameter->getValue()] = true;
+                        }
+
+                        $parameter = $parameter->getFallback();
+                    }
+                }
+            }
+        }
+
+        // Then go for all string-definitions
+        foreach ($config->getAdditionalClasses() as $key => $value) {
+            if (!($value instanceof ServiceDefinition)) {
+                if (!class_exists($value)) {
+                    throw new RuntimeException("Class $value does not exist!");
+                }
+
+                $this->analyzeClass(new ReflectionClass($value));
+
+                // Add the key as a name for the service
+                if ($key !== $value && isset($this->services[$value])) {
+                    $this->services[$key] = $this->services[$value];
                 }
             }
         }
 
         // Add itself to Container
         $ownClass = $config->getContainerNamespace() . '\\Container';
-        if (!isset($this->classToInterfaceMapping[$ownClass]) && !isset($this->constructionMethods[$ownClass])) {
-            $this->constructionMethods[$ownClass] = '$this';
-
-            if (!isset($this->interfaceToClassMapping[ContainerInterface::class])) {
-                $this->interfaceToClassMapping[ContainerInterface::class] = $ownClass;
-                $this->classToInterfaceMapping[$ownClass] = [ContainerInterface::class];
-            }
+        if (!isset($this->services[$ownClass]) && !isset($this->constructionMethodCache[$ownClass])) {
+            $this->services[$ownClass] = new ServiceDefinition($ownClass);
+            $this->services[ContainerInterface::class] = $this->services[$ownClass];
+            $this->constructionMethodCache[$ownClass] = '$this';
         }
 
         // Add current Config to Container
         $configClass = (new ReflectionClass($config))->getName();
         if (
             !(new ReflectionClass($config))->isAnonymous()
-            && !isset($this->classToInterfaceMapping[$configClass])
-            && !isset($this->constructionMethods[$configClass])
+            && !isset($this->services[$configClass])
         ) {
-            $this->constructionMethods[$configClass] = "new $configClass()";
-
-            if (!isset($this->interfaceToClassMapping[BaseConfiguration::class])) {
-                $this->interfaceToClassMapping[BaseConfiguration::class] = $configClass;
-                $this->classToInterfaceMapping[$configClass] = [BaseConfiguration::class];
-            }
+            $this->services[$configClass] = new ServiceDefinition($configClass);
+            $this->services[BaseConfiguration::class] = $this->services[$configClass];
+            $this->constructionMethodCache[$configClass] = "new \\$configClass()";
         }
 
         $this->openResultFile($config->getContainerFilepath());
@@ -102,51 +126,44 @@ class ContainerCompiler extends BaseCompiler
     {
         $className = $class->getName();
 
-        // Skip Abstract Classes, non-userdefined, anonymous, attributes, exceptions and those we already analyzed
+        // Skip Abstract Classes, non-instantiable, anonymous, attributes, exceptions and those we already analyzed
         if (
-            $class->isAbstract()
+            isset($this->services[$className])
+            || $class->isAbstract()
             || $class->isInterface()
-            || !$class->isUserDefined()
+            || !$class->isInstantiable()
             || $class->isAnonymous()
             || count($class->getAttributes(Attribute::class)) > 0
             || $class->implementsInterface(Throwable::class)
-            || isset($this->classToInterfaceMapping[$className])
         ) {
             return;
         }
 
-        $this->classToInterfaceMapping[$className] = [];
+        $definition = new ServiceDefinition($className);
+        $this->services[$className] = $definition;
 
         // Record class as implementation for interface
         foreach ($class->getInterfaces() as $interface) {
-            if (!$interface->isUserDefined()) {
-                continue;
-            }
-
             $interfaceName = $interface->getName();
-            $this->classToInterfaceMapping[$className][] = $interfaceName;
 
-            if (!isset($this->interfaceToClassMapping[$interfaceName])) {
-                $this->interfaceToClassMapping[$interfaceName] = $className;
+            if (!isset($this->services[$interfaceName])) {
+                $this->services[$interfaceName] = $definition;
             } else {
-                $this->interfaceToClassMapping[$interfaceName] = false;
+                $this->services[$interfaceName] = false;
             }
         }
 
         // Walk the parent-tree upwards to analyze those
         $extensionClass = $class->getParentClass();
         while ($extensionClass !== null && $extensionClass !== false) {
+            $extensionClassName = $extensionClass->getName();
             $this->analyzeClass($extensionClass);
 
             if ($extensionClass->isInterface() || $extensionClass->isAbstract()) {
-                if ($extensionClass->isUserDefined()) {
-                    $extensionClassName = $extensionClass->getName();
-                    $this->classToInterfaceMapping[$className][] = $extensionClassName;
-                    if (!isset($this->interfaceToClassMapping[$extensionClassName])) {
-                        $this->interfaceToClassMapping[$extensionClassName] = $className;
-                    } else {
-                        $this->interfaceToClassMapping[$extensionClassName] = false;
-                    }
+                if (!isset($this->services[$extensionClassName])) {
+                    $this->services[$extensionClassName] = $definition;
+                } else {
+                    $this->services[$extensionClassName] = false;
                 }
             }
 
@@ -154,15 +171,56 @@ class ContainerCompiler extends BaseCompiler
         }
 
         // Check for Constructor Params that we may not have recorded yet
+        // And build up parameter injection tree
         $constructor = $class->getConstructor();
         if ($constructor !== null) {
+            $parameters = [];
             foreach ($constructor->getParameters() as $parameter) {
+                $param = ParameterDefinition::createInjected($parameter->name, $parameter->name);
+                $parameters[] = $param;
+
                 $type = $this->getReflectionClassFromReflectionType($parameter->getType());
 
-                if ($type !== null) {
+                if ($type !== null && $type->name !== $className) {
                     $this->analyzeClass($type);
+                    $this->needsSeparateConstructor[$type->name] = true;
+                    $param = $param->withFallback(ParameterDefinition::createInjected($parameter->name, $type->name));
+                }
+
+                // Default value
+                if ($parameter->isDefaultValueAvailable()) {
+                    $value = $parameter->getDefaultValue();
+                    // Named constant
+                    if ($parameter->isDefaultValueConstant() && (is_object($value) || is_array($value))) {
+                        /** @noinspection PhpUnhandledExceptionInspection */
+                        $name = $parameter->getDefaultValueConstantName();
+
+                        if ($name !== null) {
+                            if (str_starts_with($name, 'self::')) {
+                                $name = str_replace('self::', "\\$className::", $name);
+                            }
+
+                            $param = $param->withFallback(ParameterDefinition::createNamedConstant($parameter->name, $name));
+                        }
+                    } else {
+                        $value = $parameter->getDefaultValue();
+
+                        if (is_string($value)) {
+                            $param = $param->withFallback(ParameterDefinition::createString($parameter->name, $value));
+                        } elseif (is_int($value)) {
+                            $param = $param->withFallback(ParameterDefinition::createInteger($parameter->name, $value));
+                        } elseif (is_float($value)) {
+                            $param = $param->withFallback(ParameterDefinition::createFloat($parameter->name, $value));
+                        } elseif (null === $value) {
+                            $param = $param->withFallback(ParameterDefinition::createNull($parameter->name));
+                        } else {
+                            $param = $param->withFallback(ParameterDefinition::createSkipIfNotFound($parameter->name));
+                        }
+                    }
                 }
             }
+
+            $definition->setParameters($parameters);
         }
     }
 
@@ -210,29 +268,32 @@ HEADER
         /** @var string[] $availableServices */
         $availableServices = [];
 
-        foreach ($this->classToInterfaceMapping as $className => $interfaceNames) {
-            $method = $this->generateAutowiredConstructor($className);
-
-            foreach ($interfaceNames as $interfaceName) {
-                if ($interfaceName !== $className && $this->interfaceToClassMapping[$interfaceName] === $className) {
-                    if (isset($this->needsSeparateMethod[$className])) {
-                        $normalizedName = $this->normalizeClassNameToMethodName($className);
-                        $this->writeLine(
-                            "\"$interfaceName\" => \$this->instantiatedServices[\"$className\"] ?? \$this->$normalizedName(),",
-                            3
-                        );
-                    } else {
-                        $this->writeLine(
-                            "\"$interfaceName\" => \$this->instantiatedServices[\"$className\"] ?? \$this->instantiatedServices[\"$className\"] = $method,",
-                            3
-                        );
-                    }
-
-                    $availableServices[] = $interfaceName;
-                }
+        foreach ($this->services as $className => $serviceDefinition) {
+            // Skip those where the implementation is not clearly defined
+            if ($serviceDefinition === false) {
+                continue;
             }
 
-            $this->writeLine("\"$className\" => $method,", 3);
+            $method = $this->generateAutowiredConstructor($className, $serviceDefinition);
+
+            // Cannot provide this service, skip it
+            if ($method === null) {
+                continue;
+            }
+
+            if (isset($this->needsSeparateConstructor[$className])) {
+                $normalizedName = $this->normalizeClassNameToMethodName($className);
+                $this->writeLine(
+                    "\"$className\" => \$this->$normalizedName(),",
+                    3
+                );
+            } else {
+                $this->writeLine(
+                    "\"$className\" => $method,",
+                    3
+                );
+            }
+
             $availableServices[] = $className;
         }
 
@@ -248,63 +309,93 @@ HEADER
         return $availableServices;
     }
 
-    private function generateAutowiredConstructor(string $className): string
+    private function generateAutowiredConstructor(string $key, ServiceDefinition $serviceDefinition): ?string
     {
-        if (!class_exists($className)) {
-            if (isset($this->constructionMethods[$className])) {
-                return $this->constructionMethods[$className];
-            }
-            // TODO: Exception
-            throw new RuntimeException($className);
+        $className = $serviceDefinition->getReflectionClass()?->name ?? $serviceDefinition->getClassName();
+
+        if (isset($this->constructionMethodCache[$className])) {
+            return $this->constructionMethodCache[$className];
         }
 
-        $class = new ReflectionClass($className);
-
         $parameters = [];
-        $constructor = $class->getConstructor();
 
-        if ($constructor !== null) {
-            foreach ($constructor->getParameters() as $parameter) {
-                if ($parameter->isDefaultValueAvailable()) {
-                    if ($parameter->isDefaultValueConstant()) {
-                        $defaultValue = $parameter->getDefaultValue();
-
-                        if (is_string($defaultValue)) {
-                            $defaultValue = "\"$defaultValue\"";
-                        }
-                        $parameters[] = "$parameter->name: $defaultValue";
-                    }
-                    continue;
-                }
-
-                if (isset($this->classToInterfaceMapping[$parameter->name])) {
-                    $normalizedName = $this->normalizeClassNameToMethodName($parameter->name);
-                    $getter = "$parameter->name: \$this->instantiatedServices[\"$parameter->name\"] ?? \$this->$normalizedName()";
-                    $this->needsSeparateMethod[] = $parameter->name;
-                } else {
-                    $typeClass = $this->getReflectionClassFromReflectionType($parameter->getType());
-
-                    if ($typeClass !== null && (isset($this->classToInterfaceMapping[$typeClass->name]) || isset($this->interfaceToClassMapping[$typeClass->name]))) {
-                        $normalizedName = $this->normalizeClassNameToMethodName($typeClass->name);
-                        $getter = "$parameter->name: \$this->instantiatedServices[\"$typeClass->name\"] ?? \$this->$normalizedName()";
-                        $this->needsSeparateMethod[] = $typeClass->name;
-                    } else {
-                        $getter = "$parameter->name: throw new \Riaf\PsrExtensions\Container\IdNotFoundException(\"$parameter->name\")";
-                    }
-                }
-
-                $parameters[] = $getter;
+        foreach ($serviceDefinition->getParameters() as $parameter) {
+            $getter = $parameter->getName() . ': ';
+            $generated = $this->createGetterFromParameter($parameter);
+            // We cannot inject a parameter. Therefore we cannot construct the service.
+            // Return null
+            // TODO: Remove the specific parameter from the usedInConstructor list to stop generating the separate method
+            if ($generated === null) {
+                return null;
             }
+            $parameters[] = $getter . $generated;
         }
 
         $parameterString = implode(', ', $parameters);
-        $method =
-            <<<FUNCTION
-new \\$className($parameterString)
-FUNCTION;
-        $this->constructionMethods[$className] = $method;
+        $method = "new \\$className($parameterString)";
+
+        // If the key is not the className then it's likely an interface,
+        // which means that we need to save the service under the className as well.
+        if ($key !== $className) {
+            $method = "\$this->instantiatedServices[\"$className\"] ?? \$this->instantiatedServices[\"$className\"] = " . $method;
+        }
 
         return $method;
+    }
+
+    private function createGetterFromParameter(ParameterDefinition $parameter): string|int|float|null
+    {
+        if ($parameter->isConstantPrimitive()) {
+            return $parameter->getValue();
+        } elseif ($parameter->isString()) {
+            return '"' . $parameter->getValue() . '"';
+        } elseif ($parameter->isNamedConstant()) {
+            return $parameter->getValue();
+        } elseif ($parameter->isNull()) {
+            return 'null';
+        } elseif ($parameter->isEnv()) {
+            $generated = '$_SERVER["' . $parameter->getValue() . '"]';
+            $fallback = $parameter->getFallback();
+
+            if ($fallback !== null) {
+                $generatedFallback = $this->createGetterFromParameter($fallback);
+
+                if ($generatedFallback !== null) {
+                    $generated .= ' ?? ' . $generatedFallback;
+                }
+            }
+
+            return $generated;
+        } elseif ($parameter->isInjected()) {
+            $value = $parameter->getValue();
+            if (isset($this->services[$value]) && $this->services[$value] !== false) {
+                // Check that we can generate the constructor for this service
+                if ($this->generateAutowiredConstructor($value, $this->services[$value]) !== null) {
+                    $normalizedName = $this->normalizeClassNameToMethodName($value);
+                    $generated = "\$this->instantiatedServices[\"$value\"] ?? \$this->$normalizedName()";
+                    $this->needsSeparateConstructor[$value] = true;
+
+                    return $generated;
+                }
+            } elseif ($parameter->isSkipIfNotFound()) {
+                return null;
+            }
+            $fallback = $parameter->getFallback();
+
+            if ($fallback === null) {
+                return null;
+            }
+
+            $generated = $this->createGetterFromParameter($fallback);
+
+            if ($generated === null) {
+                return null;
+            }
+
+            return $generated;
+        }
+
+        return null;
     }
 
     private function normalizeClassNameToMethodName(string $className): string
@@ -336,22 +427,25 @@ FUNCTION;
     {
         $generated = [];
 
-        foreach ($this->needsSeparateMethod as $className) {
+        foreach ($this->needsSeparateConstructor as $className => $_) {
             if (isset($generated[$className])) {
                 continue;
             }
 
             $throws = false;
+            $method = null;
 
-            if (!isset($this->classToInterfaceMapping[$className])) {
-                if (isset($this->interfaceToClassMapping[$className]) && $this->interfaceToClassMapping[$className]) {
-                    $method = $this->generateAutowiredConstructor($this->interfaceToClassMapping[$className]);
-                } else {
-                    $throws = true;
-                    $method = "throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException(\"$className\")";
-                }
+            if (isset($this->services[$className]) && $this->services[$className] !== false) {
+                $serviceDefinition = $this->services[$className];
+                $method = $this->generateAutowiredConstructor($className, $serviceDefinition);
             } else {
-                $method = $this->generateAutowiredConstructor($className);
+                $throws = true;
+                $method = "throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException(\"$className\")";
+            }
+
+            if ($method === null) {
+                $throws = true;
+                $method = "throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException(\"$className\")";
             }
 
             $normalizedName = $this->normalizeClassNameToMethodName($className);

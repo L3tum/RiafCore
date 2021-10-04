@@ -37,6 +37,23 @@ class CoreTest extends TestCase
 
     public function setUp(): void
     {
+        $config = new class() extends SampleCompilerConfiguration {
+            public function getContainerNamespace(): string
+            {
+                return 'NotFound';
+            }
+
+            public function getRouterNamespace(): string
+            {
+                return 'NotFound';
+            }
+
+            public function getMiddlewareDispatcherNamespace(): string
+            {
+                return 'NotFound';
+            }
+        };
+
         $this->middlewareDispatcher = $this->createMock(RequestHandlerInterface::class);
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->exactly(5))->method('debug');
@@ -60,6 +77,6 @@ class CoreTest extends TestCase
             ->method('has')
             ->withConsecutive([RequestHandlerInterface::class], [EventDispatcherInterface::class], [ResponseEmitterInterface::class], [LoggerInterface::class])
             ->willReturn(true);
-        $this->core = new Core(new SampleCompilerConfiguration(), $this->container);
+        $this->core = new Core(new $config(), $this->container);
     }
 }

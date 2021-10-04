@@ -18,7 +18,7 @@ interface ContainerCompilerConfiguration
      * If Key is unequal Value, then Value is treated as the implementation for Key
      * making both Key and Value available for injection.
      *
-     * @return array<string, string>
+     * @return array<string, string|ServiceDefinition>
      */
     public function getAdditionalClasses(): array;
 }

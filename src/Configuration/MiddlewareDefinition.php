@@ -8,14 +8,14 @@ use JetBrains\PhpStorm\Pure;
 use ReflectionClass;
 use ReflectionException;
 
-class MiddlewareDefinition
+final class MiddlewareDefinition
 {
     public function __construct(private string $className, private int $priority)
     {
     }
 
     #[Pure]
-    public static function create(string $className, int $priority = 0): MiddlewareDefinition
+    public static function create(string $className, int $priority = 0): self
     {
         return new self($className, $priority);
     }
