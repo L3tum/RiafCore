@@ -11,12 +11,14 @@ use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Metrics\Clock\SystemClock;
 use Riaf\Metrics\Timing;
 use Riaf\PsrExtensions\Container\IdNotFoundException;
+use Riaf\TestCases\Container\DefaultBoolParameter;
 use Riaf\TestCases\Container\DefaultFloatParameter;
 use Riaf\TestCases\Container\DefaultIntegerTestCase;
 use Riaf\TestCases\Container\DefaultStringParameterTestCase;
 use Riaf\TestCases\Container\EnvParameter;
 use Riaf\TestCases\Container\EnvWithDefaultFallbackParameter;
 use Riaf\TestCases\Container\EnvWithFallbackParameter;
+use Riaf\TestCases\Container\InjectedBoolParameter;
 use Riaf\TestCases\Container\InjectedFloatParameter;
 use Riaf\TestCases\Container\InjectedIntegerParameter;
 use Riaf\TestCases\Container\InjectedServiceFallbackParameter;
@@ -149,8 +151,17 @@ class ContainerCompilerTest extends TestCase
         self::assertInstanceOf(DateTimeImmutable::class, self::$container->get('now'));
     }
 
+    public function testHandlesDefaultBoolParameter(): void
+    {
+        self::assertTrue(self::$container->get(DefaultBoolParameter::class)->isValue());
+    }
+
+    public function testHandlesInjectedBoolParameter(): void
+    {
+        self::assertTrue(self::$container->get(InjectedBoolParameter::class)->isValue());
+    }
+
     // TODO: Array Parsing Tests?
-    // TODO: Alias Test ('now' => DateTimeImmutable::class)
 
     /**
      * @noinspection PhpFullyQualifiedNameUsageInspection

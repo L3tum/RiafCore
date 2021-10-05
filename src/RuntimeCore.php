@@ -14,6 +14,7 @@ use Riaf\Compiler\RouterCompiler;
 use Riaf\Configuration\BaseConfiguration;
 use Riaf\Metrics\Clock\SystemClock;
 use Riaf\Metrics\Timing;
+use RuntimeException;
 
 class RuntimeCore extends Core
 {
@@ -35,8 +36,7 @@ class RuntimeCore extends Core
 
         foreach ($compilers as $compilerClass) {
             if (!class_exists($compilerClass)) {
-                // TODO: Exception?
-                continue;
+                throw new RuntimeException("Missing compiler $compilerClass");
             }
 
             /** @var BaseCompiler $compiler */

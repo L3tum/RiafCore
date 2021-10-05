@@ -19,6 +19,7 @@ final class ParameterDefinition
         private bool $isNamedConstant = false,
         private bool $skipIfNotFound = false,
         private bool $isNull = false,
+        private bool $isBool = false,
         private ?ParameterDefinition $fallback = null
     ) {
     }
@@ -38,19 +39,7 @@ final class ParameterDefinition
             $param = ParameterDefinition::createEnv($name, $parameter['env']);
         } else {
             $value = $parameter['value'];
-
-            if (is_string($value)) {
-                $param = ParameterDefinition::createString($name, $value);
-            } elseif (is_int($value)) {
-                $param = ParameterDefinition::createInteger($name, $value);
-            } elseif (is_float($value)) {
-                $param = ParameterDefinition::createFloat($name, $value);
-            } elseif (null === $value) {
-                $param = ParameterDefinition::createNull($name);
-            } else {
-                // TODO: Exception
-                throw new RuntimeException('Invalid parameter value');
-            }
+            $param = self::fromValue($name, $value);
         }
 
         if (isset($parameter['fallback'])) {
@@ -72,6 +61,23 @@ final class ParameterDefinition
         return new self($name, $value, isEnv: true);
     }
 
+    public static function fromValue(string $name, mixed $value): self
+    {
+        if (is_string($value)) {
+            return ParameterDefinition::createString($name, $value);
+        } elseif (is_int($value)) {
+            return ParameterDefinition::createInteger($name, $value);
+        } elseif (is_float($value)) {
+            return ParameterDefinition::createFloat($name, $value);
+        } elseif (is_bool($value)) {
+            return ParameterDefinition::createBool($name, $value);
+        } elseif (null === $value) {
+            return ParameterDefinition::createNull($name);
+        }
+        // TODO: Exception
+        throw new RuntimeException('Invalid parameter value');
+    }
+
     #[Pure]
     public static function createString(string $name, string $value): self
     {
@@ -88,6 +94,12 @@ final class ParameterDefinition
     public static function createFloat(string $name, float $value): self
     {
         return new self($name, $value, true);
+    }
+
+    #[Pure]
+    public static function createBool(string $name, bool $value): self
+    {
+        return new self($name, $value, isBool: true);
     }
 
     #[Pure]
@@ -168,5 +180,10 @@ final class ParameterDefinition
     public function isNull(): bool
     {
         return $this->isNull;
+    }
+
+    public function isBool(): bool
+    {
+        return $this->isBool;
     }
 }

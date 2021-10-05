@@ -15,12 +15,14 @@ use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\PreloadCompilerConfiguration;
 use Riaf\Configuration\RouterCompilerConfiguration;
 use Riaf\Configuration\ServiceDefinition;
+use Riaf\TestCases\Container\DefaultBoolParameter;
 use Riaf\TestCases\Container\DefaultFloatParameter;
 use Riaf\TestCases\Container\DefaultIntegerTestCase;
 use Riaf\TestCases\Container\DefaultStringParameterTestCase;
 use Riaf\TestCases\Container\EnvParameter;
 use Riaf\TestCases\Container\EnvWithDefaultFallbackParameter;
 use Riaf\TestCases\Container\EnvWithFallbackParameter;
+use Riaf\TestCases\Container\InjectedBoolParameter;
 use Riaf\TestCases\Container\InjectedFloatParameter;
 use Riaf\TestCases\Container\InjectedIntegerParameter;
 use Riaf\TestCases\Container\InjectedServiceFallbackParameter;
@@ -111,6 +113,11 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
                     ParameterDefinition::createNamedConstant('value', '\\' . NamedConstantInjectedScalarParameter::class . '::DEFAULT'),
                 ]),
             'now' => DateTimeImmutable::class,
+            DefaultBoolParameter::class => DefaultBoolParameter::class,
+            InjectedBoolParameter::class => ServiceDefinition::create(InjectedBoolParameter::class)
+                ->setParameters([
+                    ParameterDefinition::createBool('value', true)
+                ])
         ];
     }
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use Attribute;
+use Exception;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use Riaf\Configuration\BaseConfiguration;
@@ -203,17 +204,9 @@ class ContainerCompiler extends BaseCompiler
                             $param = $param->withFallback(ParameterDefinition::createNamedConstant($parameter->name, $name));
                         }
                     } else {
-                        $value = $parameter->getDefaultValue();
-
-                        if (is_string($value)) {
-                            $param = $param->withFallback(ParameterDefinition::createString($parameter->name, $value));
-                        } elseif (is_int($value)) {
-                            $param = $param->withFallback(ParameterDefinition::createInteger($parameter->name, $value));
-                        } elseif (is_float($value)) {
-                            $param = $param->withFallback(ParameterDefinition::createFloat($parameter->name, $value));
-                        } elseif (null === $value) {
-                            $param = $param->withFallback(ParameterDefinition::createNull($parameter->name));
-                        } else {
+                        try {
+                            $param = $param->withFallback(ParameterDefinition::fromValue($parameter->name, $value));
+                        } catch (Exception) {
                             $param = $param->withFallback(ParameterDefinition::createSkipIfNotFound($parameter->name));
                         }
                     }
@@ -339,13 +332,15 @@ HEADER
     private function createGetterFromParameter(ParameterDefinition $parameter): string|int|float|null
     {
         if ($parameter->isConstantPrimitive()) {
-            return $parameter->getValue();
+            return (string) $parameter->getValue();
         } elseif ($parameter->isString()) {
             return '"' . $parameter->getValue() . '"';
         } elseif ($parameter->isNamedConstant()) {
             return $parameter->getValue();
         } elseif ($parameter->isNull()) {
             return 'null';
+        } elseif ($parameter->isBool()) {
+            return $parameter->getValue() ? 'true' : 'false';
         } elseif ($parameter->isEnv()) {
             $generated = '$_SERVER["' . $parameter->getValue() . '"]';
             $fallback = $parameter->getFallback();
