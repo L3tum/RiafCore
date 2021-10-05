@@ -116,8 +116,8 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
             DefaultBoolParameter::class => DefaultBoolParameter::class,
             InjectedBoolParameter::class => ServiceDefinition::create(InjectedBoolParameter::class)
                 ->setParameters([
-                    ParameterDefinition::createBool('value', true)
-                ])
+                    ParameterDefinition::createBool('value', true),
+                ]),
         ];
     }
 

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Riaf\TestCases\Container;
 
 class DefaultBoolParameter
