@@ -255,7 +255,7 @@ class Container implements \Psr\Container\ContainerInterface
     /** @throws \Psr\Container\NotFoundExceptionInterface */
     public function get(string \$id)
     {
-        return \$this->instantiatedServices[\$id] ?? \$this->instantiatedServices[\$id] = match (\$id){
+        return \$this->instantiatedServices[\$id] ?? match (\$id){
 HEADER
         );
     }
@@ -281,18 +281,10 @@ HEADER
                 continue;
             }
 
-            if (isset($this->needsSeparateConstructor[$className])) {
-                $normalizedName = $this->normalizeClassNameToMethodName($className);
-                $this->writeLine(
-                    "\"$className\" => \$this->$normalizedName(),",
-                    3
-                );
-            } else {
-                $this->writeLine(
-                    "\"$className\" => $method,",
-                    3
-                );
-            }
+            $this->writeLine(
+                "\"$className\" => $method,",
+                3
+            );
 
             $availableServices[] = $className;
         }
@@ -332,13 +324,14 @@ HEADER
         }
 
         $parameterString = implode(', ', $parameters);
-        $method = "new \\$className($parameterString)";
+        $method = "\$this->instantiatedServices[\"$key\"] = ";
 
         // If the key is not the className then it's likely an interface,
         // which means that we need to save the service under the className as well.
         if ($key !== $className) {
-            $method = "\$this->instantiatedServices[\"$className\"] ?? \$this->instantiatedServices[\"$className\"] = " . $method;
+            $method .= "\$this->instantiatedServices[\"$className\"] ?? \$this->instantiatedServices[\"$className\"] = ";
         }
+        $method .= "new \\$className($parameterString)";
 
         return $method;
     }
@@ -456,7 +449,7 @@ HEADER
 
             $this->writeLine("public function $normalizedName(): \\$className", 1);
             $this->writeLine('{', 1);
-            $this->writeLine("return \$this->instantiatedServices[\"$className\"] = $method;", 2);
+            $this->writeLine("return $method;", 2);
             $this->writeLine('}', 1);
 
             $generated[$className] = true;
