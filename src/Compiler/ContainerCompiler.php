@@ -296,7 +296,7 @@ HEADER
 
     private function generateAutowiredConstructor(string $key, ServiceDefinition $serviceDefinition): ?string
     {
-        $className = $serviceDefinition->getReflectionClass()?->name ?? $serviceDefinition->getClassName();
+        $className = $serviceDefinition->getClassName();
 
         if (isset($this->constructionMethodCache[$className])) {
             return $this->constructionMethodCache[$className];
