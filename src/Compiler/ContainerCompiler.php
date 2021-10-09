@@ -36,9 +36,10 @@ class ContainerCompiler extends BaseCompiler
         $this->timing->start(self::class);
         /** @var ContainerCompilerConfiguration $config */
         $config = $this->config;
+        $this->openResultFile($config->getContainerFilepath());
 
         // First collect all project-related classes
-        foreach ($this->analyzer->getUsedClasses($this->config->getProjectRoot()) as $class) {
+        foreach ($this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]) as $class) {
             /* @var ReflectionClass $class */
             $this->analyzeClass($class);
         }
@@ -110,8 +111,6 @@ class ContainerCompiler extends BaseCompiler
             $this->services[BaseConfiguration::class] = $this->services[$configClass];
             $this->constructionMethodCache[$configClass] = "new \\$configClass()";
         }
-
-        $this->openResultFile($config->getContainerFilepath());
 
         $this->generateContainer();
 

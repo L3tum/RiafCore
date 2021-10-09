@@ -30,26 +30,25 @@ class RouterCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
-        if ($this->config instanceof RouterCompilerConfiguration) {
-            /** @var RouterCompilerConfiguration $config */
-            $config = $this->config;
-            $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot());
+        /** @var RouterCompilerConfiguration $config */
+        $config = $this->config;
+        $this->openResultFile($config->getRouterFilepath());
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
 
-            foreach ($classes as $class) {
-                $this->analyzeClass($class);
-            }
-
-            foreach ($config->getAdditionalRouterClasses() as $routerClass) {
-                if (class_exists($routerClass)) {
-                    $this->analyzeClass(new ReflectionClass($routerClass));
-                }
-            }
-
-            $this->openResultFile($config->getRouterFilepath());
-            $this->generateHeader();
-            $this->generateRoutingTree();
-            $this->generateEnding();
+        foreach ($classes as $class) {
+            $this->analyzeClass($class);
         }
+
+        foreach ($config->getAdditionalRouterClasses() as $routerClass) {
+            if (class_exists($routerClass)) {
+                $this->analyzeClass(new ReflectionClass($routerClass));
+            }
+        }
+
+        $this->generateHeader();
+        $this->generateRoutingTree();
+        $this->generateEnding();
+
         $this->timing->stop(self::class);
 
         return true;

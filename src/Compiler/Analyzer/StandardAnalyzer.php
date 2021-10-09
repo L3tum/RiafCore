@@ -19,11 +19,9 @@ class StandardAnalyzer implements AnalyzerInterface
     }
 
     /**
-     * @return Iterator<ReflectionClass<object>>
-     *
-     * @throws Exception
+     * {@inheritDoc}
      */
-    public function getUsedClasses(string $projectRoot): Iterator
+    public function getUsedClasses(string $projectRoot, array $forbiddenFiles = []): Iterator
     {
         $this->timing->start(self::class);
 
@@ -47,6 +45,10 @@ class StandardAnalyzer implements AnalyzerInterface
             $files = $this->getFilesInDirectory($dir);
 
             foreach ($files as $file) {
+                if (in_array($file, $forbiddenFiles)) {
+                    continue;
+                }
+
                 $reflectionClass = $this->tryGetReflectionClass($namespace, $dir, $file);
 
                 if ($reflectionClass === null) {

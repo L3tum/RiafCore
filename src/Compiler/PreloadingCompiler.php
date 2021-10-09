@@ -23,33 +23,31 @@ class PreloadingCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
-        if ($this->config instanceof PreloadCompilerConfiguration) {
-            /** @var PreloadCompilerConfiguration $config */
-            $config = $this->config;
-            $this->openResultFile($config->getPreloadingFilepath());
-            $this->writeLine('<?php');
+        /** @var PreloadCompilerConfiguration $config */
+        $config = $this->config;
+        $this->openResultFile($config->getPreloadingFilepath());
+        $this->writeLine('<?php');
 
-            $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot());
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
 
-            foreach ($classes as $class) {
-                $preloadableClasses = $this->analyzeClassUsageInClass($class);
+        foreach ($classes as $class) {
+            $preloadableClasses = $this->analyzeClassUsageInClass($class);
 
-                foreach ($preloadableClasses as $preloadableClass) {
-                    /** @var ReflectionClass<object> $preloadableClass */
-                    $filePath = $preloadableClass->getFileName();
-                    $this->writeLine("opcache_compile_file(\"$filePath\");");
-                }
+            foreach ($preloadableClasses as $preloadableClass) {
+                /** @var ReflectionClass<object> $preloadableClass */
+                $filePath = $preloadableClass->getFileName();
+                $this->writeLine("opcache_compile_file(\"$filePath\");");
+            }
+        }
+
+        foreach ($config->getAdditionalPreloadedFiles() as $additionalPreloadedFile) {
+            if (!str_starts_with($additionalPreloadedFile, $this->config->getProjectRoot())) {
+                $additionalPreloadedFile = $this->config->getProjectRoot() . '/' . $additionalPreloadedFile;
             }
 
-            foreach ($config->getAdditionalPreloadedFiles() as $additionalPreloadedFile) {
-                if (!str_starts_with($additionalPreloadedFile, $this->config->getProjectRoot())) {
-                    $additionalPreloadedFile = $this->config->getProjectRoot() . '/' . $additionalPreloadedFile;
-                }
-
-                if (!isset($this->preloadedFiles[$additionalPreloadedFile])) {
-                    $this->preloadedFiles[$additionalPreloadedFile] = true;
-                    $this->writeLine("opcache_compile_file(\"$additionalPreloadedFile\");");
-                }
+            if (!isset($this->preloadedFiles[$additionalPreloadedFile])) {
+                $this->preloadedFiles[$additionalPreloadedFile] = true;
+                $this->writeLine("opcache_compile_file(\"$additionalPreloadedFile\");");
             }
         }
 

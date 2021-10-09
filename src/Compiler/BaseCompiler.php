@@ -23,6 +23,8 @@ abstract class BaseCompiler
      */
     private $handle = null;
 
+    protected ?string $outputFile = null;
+
     public function __construct(protected AnalyzerInterface $analyzer, protected Timing $timing, protected BaseConfiguration $config)
     {
     }
@@ -84,7 +86,8 @@ abstract class BaseCompiler
         $this->handle = $this->config->getFileHandle($this);
 
         if ($this->handle === null) {
-            $this->handle = fopen($this->config->getProjectRoot() . $path, 'wb+') ?: null;
+            $this->outputFile = $this->config->getProjectRoot() . $path;
+            $this->handle = fopen($this->outputFile, 'wb+') ?: null;
         }
 
         if ($this->handle === null) {

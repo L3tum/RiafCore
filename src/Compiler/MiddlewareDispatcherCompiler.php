@@ -19,8 +19,9 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
 
         /** @var MiddlewareDispatcherCompilerConfiguration $config */
         $config = $this->config;
+        $this->openResultFile($config->getMiddlewareDispatcherFilepath());
 
-        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot());
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
         /** @var MiddlewareDefinition[] $middlewares */
         $middlewares = [];
 
@@ -49,8 +50,6 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
             // Sorting array by decreasing priority
             return ($a->getPriority() <=> $b->getPriority()) * -1;
         });
-
-        $this->openResultFile($config->getMiddlewareDispatcherFilepath());
 
         $this->generateMiddlewareDispatcher($config->getMiddlewareDispatcherNamespace(), $middlewares);
 
