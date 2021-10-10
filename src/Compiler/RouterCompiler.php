@@ -11,6 +11,7 @@ use ReflectionNamedType;
 use ReflectionParameter;
 use Riaf\Configuration\RouterCompilerConfiguration;
 use Riaf\Routing\Route;
+use RuntimeException;
 
 class RouterCompiler extends BaseCompiler
 {
@@ -92,7 +93,6 @@ class RouterCompiler extends BaseCompiler
         }
     }
 
-    // TODO: Handle duplicate routes gracefully
     private function analyzeRoute(Route $route, string $targetClass, string $targetMethod): void
     {
         if (!isset($this->routingTree[$route->getMethod()])) {
@@ -188,15 +188,16 @@ HEADER
 
     /**
      * @param array{index: int, requirement: array<string, string|null>, call: array<string, string>} $values
+     * @param array<string, bool>                                                                     $capturedParams
      */
-    private function generateLeaf(string $key, array $values): void
+    private function generateLeaf(string $key, array $values, array $capturedParams = []): void
     {
         $index = $values['index'];
         $count = $index + 1;
         // Parameter
         if (isset($values['requirement'])) {
             $requirement = $values['requirement'];
-            $parameter = $requirement['parameter'];
+            $parameter = (string) $requirement['parameter'];
             $pattern = $requirement['pattern'];
 
             if ($pattern !== null) { // Parameter with Requirement
@@ -208,6 +209,8 @@ HEADER
                 $this->writeLine('{', $index + 3);
                 $this->writeLine("\$capturedParams[\"$parameter\"] = \$uriParts[$index];", $index + 4);
             }
+
+            $capturedParams[$parameter] = true;
         } // Normal route
         else {
             $this->writeLine("if(\$uriParts[$index] === \"$key\")", $index + 3);
@@ -225,19 +228,23 @@ HEADER
                 $params = [];
 
                 foreach ($this->getParameters($class, $method) as $parameter) {
-                    if ($parameter->isDefaultValueAvailable() && $parameter->isDefaultValueConstant()) {
+                    if ($parameter->isDefaultValueAvailable()) {
                         $defaultValue = $parameter->getDefaultValue();
-                        if (is_string($defaultValue)) {
-                            $defaultValue = "\"$defaultValue\"";
+                        if (!is_object($defaultValue) && !is_array($defaultValue)) {
+                            if (is_string($defaultValue)) {
+                                $defaultValue = "\"$defaultValue\"";
+                            } elseif (null === $defaultValue) {
+                                $defaultValue = 'null';
+                            } elseif (is_bool($defaultValue)) {
+                                $defaultValue = $defaultValue ? 'true' : 'false';
+                            }
+                            $params[] = "$parameter->name: $defaultValue";
+                            continue;
                         }
-                        $params[] = "$parameter->name: $defaultValue";
-                        continue;
                     }
 
-                    $type = $this->getReflectionClassFromReflectionType($parameter->getType());
-
-                    // Could not fetch ReflectionClass of Type
-                    if ($type === null) {
+                    // Has captured the parameter
+                    if (isset($capturedParams[$parameter->name])) {
                         // If Type isn't null, then it's a built-in type.
                         // So we need to cast the captured param into the appropriate type
                         // and hope that it's correct...
@@ -246,7 +253,7 @@ HEADER
                             $type = $parameter->getType()->getName();
                             $params[] = "$parameter->name: ($type)\$capturedParams[\"$parameter->name\"]";
                         }
-                        // Type is null (therefore there may be no type-hint at all) or string,
+                        // Type is not named (therefore there may be no type-hint at all) or string,
                         // so we do not need to care about it.
                         else {
                             $params[] = "$parameter->name: \$capturedParams[\"$parameter->name\"]";
@@ -254,24 +261,35 @@ HEADER
                         continue;
                     }
 
-                    if ($type->name === ServerRequestInterface::class) {
-                        $params[] = "$parameter->name: \$request";
-                        continue;
-                    }
+                    $type = $this->getReflectionClassFromReflectionType($parameter->getType());
 
-                    $params[] = "$parameter->name: \$capturedParams[\"$parameter->name\"] ?? \$this->container->has(\"$parameter->name\") ? \$this->container->get(\"$parameter->name\") : \$this->container->get(\"$type->name\")";
+                    if ($type !== null) {
+                        // Param is the Request itself
+                        if ($type->name === ServerRequestInterface::class) {
+                            $params[] = "$parameter->name: \$request";
+                        }
+                        // Param is another type (which may be in the Container)
+                        else {
+                            $params[] = "$parameter->name: \$this->container->has(\"$parameter->name\") ? \$this->container->get(\"$parameter->name\") : \$this->container->get(\"$type->name\")";
+                        }
+                    } else {
+                        // Could not find Type, last chance is the name of the parameter
+                        $params[] = "$parameter->name: \$this->container->get(\"$parameter->name\")";
+                    }
                 }
 
                 $parameter = implode(', ', $params);
                 $this->writeLine("return \$this->container->get(\"$class\")->$method($parameter);", $index + 5);
                 $this->writeLine('}', $index + 4);
+            } else {
+                // TODO: Exception
+                throw new RuntimeException('Invalid Routing Configuration');
             }
-            // TODO: Exception
         } else {
             $next = $values['next'];
 
             foreach ($next as $matching => $value) {
-                $this->generateLeaf($matching, $value);
+                $this->generateLeaf($matching, $value, $capturedParams);
             }
         }
 

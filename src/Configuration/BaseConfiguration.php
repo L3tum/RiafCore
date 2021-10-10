@@ -64,6 +64,6 @@ abstract class BaseConfiguration
 
     public function isDevelopmentMode(): bool
     {
-        return ($_SERVER['APP_ENV'] ?? 'prod') === 'dev';
+        return ($_SERVER['APP_ENV'] ?? 'dev') === 'dev';
     }
 }

@@ -6,30 +6,48 @@ namespace Riaf;
 
 use Exception;
 use Psr\Container\ContainerInterface;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Server\RequestHandlerInterface;
+use Riaf\Compiler\Analyzer\StandardAnalyzer;
+use Riaf\Compiler\BaseCompiler;
+use Riaf\Compiler\ContainerCompiler;
+use Riaf\Compiler\MiddlewareDispatcherCompiler;
+use Riaf\Compiler\RouterCompiler;
 use Riaf\Configuration\BaseConfiguration;
+use Riaf\Metrics\Clock\SystemClock;
+use Riaf\Metrics\Timing;
+use RuntimeException;
 
-class CoreBuilder implements RequestHandlerInterface
+class CoreBuilder extends Core
 {
-    private Core $core;
+    /** @var string[] */
+    private const COMPILERS = [
+        RouterCompiler::class,
+        MiddlewareDispatcherCompiler::class,
+        ContainerCompiler::class,
+    ];
 
     /**
      * @throws Exception
      */
     public function __construct(protected BaseConfiguration $config, protected ?ContainerInterface $container = null)
     {
-        $this->core = $config->isDevelopmentMode() ? new RuntimeCore($config, $container) : new Core($config, $container);
-    }
+        if ($this->config->isDevelopmentMode()) {
+            $compilers = array_merge($config->getAdditionalCompilers(), self::COMPILERS);
+            $timing = new Timing(new SystemClock());
+            $analyzer = new StandardAnalyzer($timing);
 
-    public function handle(ServerRequestInterface $request): ResponseInterface
-    {
-        return $this->core->handle($request);
-    }
+            foreach ($compilers as $compilerClass) {
+                if (!class_exists($compilerClass)) {
+                    throw new RuntimeException("Missing compiler $compilerClass");
+                }
 
-    public function createRequestFromGlobals(): ServerRequestInterface
-    {
-        return $this->core->createRequestFromGlobals();
+                /** @var BaseCompiler $compiler */
+                $compiler = new $compilerClass($analyzer, $timing, $config);
+                if ($compiler->supportsCompilation()) {
+                    $compiler->compile();
+                }
+            }
+        }
+
+        parent::__construct($config, $container);
     }
 }
