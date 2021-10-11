@@ -127,7 +127,7 @@ class ContainerCompiler extends BaseCompiler
 
         if (!isset($this->services['coreDebug'])) {
             $this->services['coreDebug'] = new ServiceDefinition('coreDebug');
-            $this->constructionMethodCache['coreDebug'] = '$this->container->get(\Riaf\Configuration\BaseConfiguration::class)->isDevelopmentMode()';
+            $this->constructionMethodCache['coreDebug'] = '$this->get(\Riaf\Configuration\BaseConfiguration::class)->isDevelopmentMode()';
         }
 
         $this->generateContainer();
