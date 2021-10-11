@@ -23,6 +23,11 @@ abstract class BaseCompiler
     /**
      * @var resource|null
      */
+    private $backingHandle = null;
+
+    /**
+     * @var resource|null
+     */
     private $handle = null;
 
     public function __construct(protected AnalyzerInterface $analyzer, protected Timing $timing, protected BaseConfiguration $config)
@@ -32,7 +37,17 @@ abstract class BaseCompiler
     public function __destruct()
     {
         if ($this->handle !== null) {
+            if ($this->backingHandle !== null) {
+                rewind($this->handle);
+                rewind($this->backingHandle);
+                stream_copy_to_stream($this->handle, $this->backingHandle);
+            }
+
             fclose($this->handle);
+        }
+
+        if ($this->backingHandle !== null) {
+            fclose($this->backingHandle);
         }
     }
 
@@ -87,7 +102,8 @@ abstract class BaseCompiler
 
         if ($this->handle === null) {
             $this->outputFile = $this->config->getProjectRoot() . $path;
-            $this->handle = fopen($this->outputFile, 'wb+') ?: null;
+            $this->backingHandle = fopen($this->outputFile, 'wb+') ?: null;
+            $this->handle = fopen('php://memory', 'wb+');
         }
 
         if ($this->handle === null) {

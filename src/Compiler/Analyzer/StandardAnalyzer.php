@@ -9,7 +9,6 @@ use Generator;
 use Iterator;
 use JsonException;
 use ReflectionClass;
-use ReflectionException;
 use Riaf\Metrics\Timing;
 
 class StandardAnalyzer implements AnalyzerInterface
@@ -24,6 +23,7 @@ class StandardAnalyzer implements AnalyzerInterface
     public function getUsedClasses(string $projectRoot, array $forbiddenFiles = []): Iterator
     {
         $this->timing->start(self::class);
+        $forbiddenFiles = array_flip($forbiddenFiles);
 
         try {
             $autoloadedNamespaces = $this->getAutoloadNamespaces($projectRoot);
@@ -45,7 +45,7 @@ class StandardAnalyzer implements AnalyzerInterface
             $files = $this->getFilesInDirectory($dir);
 
             foreach ($files as $file) {
-                if (in_array($file, $forbiddenFiles)) {
+                if (isset($forbiddenFiles[$file])) {
                     continue;
                 }
 
@@ -138,6 +138,7 @@ class StandardAnalyzer implements AnalyzerInterface
 
     /**
      * @return ReflectionClass<object>|null
+     * @noinspection PhpUnhandledExceptionInspection
      */
     private function tryGetReflectionClass(string $composerNamespace, string $mappedDirectory, string $file): ?ReflectionClass
     {
@@ -146,21 +147,12 @@ class StandardAnalyzer implements AnalyzerInterface
         $namespace = str_replace('/', '\\', $className);
 
         if (class_exists($namespace) || interface_exists($namespace)) {
-            try {
-                return new ReflectionClass($namespace);
-            } catch (ReflectionException) {
-                return null;
-            }
-        } else {
-            $namespace = $composerNamespace . $namespace;
+            return new ReflectionClass($namespace);
+        }
+        $namespace = $composerNamespace . $namespace;
 
-            if (class_exists($namespace) || interface_exists($namespace)) {
-                try {
-                    return new ReflectionClass($namespace);
-                } catch (ReflectionException) {
-                    return null;
-                }
-            }
+        if (class_exists($namespace) || interface_exists($namespace)) {
+            return new ReflectionClass($namespace);
         }
 
         return null;

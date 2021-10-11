@@ -136,8 +136,8 @@ class RouterCompiler extends BaseCompiler
                 $currentRouting[$part] = ['index' => $key];
             }
 
-            if (preg_match("/\{([a-zA-Z][a-zA-Z0-9]*)\}/", $part, $matches) === 1) {
-                $parameter = $matches[1];
+            if (str_starts_with($part, '{')) {
+                $parameter = trim($part, '{}');
                 $requirement = $route->getRequirement($parameter);
                 $currentRouting[$part]['requirement'] = ['parameter' => $parameter, 'pattern' => $requirement];
             }
