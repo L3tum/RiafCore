@@ -23,7 +23,7 @@ class StandardAnalyzer implements AnalyzerInterface
     public function getUsedClasses(string $projectRoot, array $forbiddenFiles = []): Iterator
     {
         $this->timing->start(self::class);
-        $forbiddenFiles = array_flip($forbiddenFiles);
+        $forbiddenFiles = @array_flip($forbiddenFiles);
 
         try {
             $autoloadedNamespaces = $this->getAutoloadNamespaces($projectRoot);
