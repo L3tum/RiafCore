@@ -7,6 +7,7 @@ use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Compiler\BaseCompiler;
 use Riaf\Compiler\CompilerLoader;
 use Riaf\Compiler\ContainerCompiler;
+use Riaf\Compiler\EventDispatcherCompiler;
 use Riaf\Compiler\MiddlewareDispatcherCompiler;
 use Riaf\Compiler\PreloadingCompiler;
 use Riaf\Compiler\RouterCompiler;
@@ -49,6 +50,7 @@ $analyzer = new StandardAnalyzer($timing);
 $compilers = [
     RouterCompiler::class,
     MiddlewareDispatcherCompiler::class,
+    EventDispatcherCompiler::class,
     ContainerCompiler::class,
     PreloadingCompiler::class,
 ];

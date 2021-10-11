@@ -28,6 +28,15 @@ class TimingTest extends TestCase
         self::assertLessThan(1, $stopTiming);
     }
 
+    public function testAddsStopToTimingsWithKey(): void
+    {
+        $this->timing->start('test');
+        usleep(500);
+        $this->timing->stop('test');
+        $stopTiming = $this->timing->getTiming('test');
+        self::assertLessThan(1, $stopTiming);
+    }
+
     public function testAddsLabelsAtStart(): void
     {
         $this->timing->start('test', ['test' => 'test']);

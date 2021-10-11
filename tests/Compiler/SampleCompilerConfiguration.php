@@ -10,6 +10,7 @@ use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\ContainerCompilerConfiguration;
+use Riaf\Configuration\EventDispatcherCompilerConfiguration;
 use Riaf\Configuration\MiddlewareDispatcherCompilerConfiguration;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\PreloadCompilerConfiguration;
@@ -33,7 +34,7 @@ use Riaf\TestCases\Container\NamedConstantArrayParameter;
 use Riaf\TestCases\Container\NamedConstantInjectedScalarParameter;
 use Riaf\TestCases\Container\NamedConstantScalarParameter;
 
-class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCompilerConfiguration, ContainerCompilerConfiguration, RouterCompilerConfiguration, MiddlewareDispatcherCompilerConfiguration
+class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCompilerConfiguration, ContainerCompilerConfiguration, RouterCompilerConfiguration, MiddlewareDispatcherCompilerConfiguration, EventDispatcherCompilerConfiguration
 {
     public function getContainerNamespace(): string
     {
@@ -67,6 +68,10 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
             DefaultStringParameterTestCase::class => DefaultStringParameterTestCase::class,
             DefaultIntegerTestCase::class => DefaultIntegerTestCase::class,
             InjectedStringParameter::class => ServiceDefinition::create(InjectedStringParameter::class)
+                ->setParameters([
+                    ParameterDefinition::createString('injectedName', 'Hello'),
+                ]),
+            'someotherkey' => ServiceDefinition::create(InjectedStringParameter::class)
                 ->setParameters([
                     ParameterDefinition::createString('injectedName', 'Hello'),
                 ]),
@@ -142,6 +147,21 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
     }
 
     public function getAdditionalRouterClasses(): array
+    {
+        return [];
+    }
+
+    public function getEventDispatcherNamespace(): string
+    {
+        return 'Riaf';
+    }
+
+    public function getEventDispatcherFilepath(): string
+    {
+        return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/EventDispatcher.php';
+    }
+
+    public function getAdditionalEventListeners(): array
     {
         return [];
     }

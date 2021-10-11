@@ -153,6 +153,7 @@ class BaseControllerTest extends TestCase
     protected function setUp(): void
     {
         $this->container = $this->createMock(ContainerInterface::class);
-        $this->controller = new BaseController($this->container);
+        $this->controller = new class($this->container) extends BaseController {
+        };
     }
 }

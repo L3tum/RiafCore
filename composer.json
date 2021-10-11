@@ -46,6 +46,7 @@
   "scripts": {
     "psalm": "vendor/bin/psalm --show-info=true",
     "phpstan": "vendor/bin/phpstan analyze -l 7 src",
+    "test": "vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox tests",
     "phpunit": "XDEBUG_MODE=coverage vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox --coverage-text tests",
     "phpcs": "tools/php-cs-fixer/vendor/bin/php-cs-fixer fix",
     "phpbench": "tools/phpbench/vendor/bin/phpbench run tests/Benchmark --report=aggregate",

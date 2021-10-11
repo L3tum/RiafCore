@@ -11,7 +11,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 
-class BaseController
+abstract class BaseController
 {
     public function __construct(protected ContainerInterface $container)
     {

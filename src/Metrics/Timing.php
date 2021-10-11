@@ -79,6 +79,11 @@ final class Timing
         return $this->timings;
     }
 
+    public function getTiming(string $key): ?float
+    {
+        return $this->timings[$key] ?? null;
+    }
+
     /**
      * @param string $key
      *

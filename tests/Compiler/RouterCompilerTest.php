@@ -217,7 +217,7 @@ class RouterCompilerTest extends TestCase
             }
         };
 
-        $analyzer = (new RouterCompilerTest())->createMock(AnalyzerInterface::class);
+        $analyzer = $this->createMock(AnalyzerInterface::class);
         $mockingClass = new class() {
             #[Route('/')]
             public function handle()
@@ -272,7 +272,7 @@ class RouterCompilerTest extends TestCase
         $compiler = new RouterCompiler($analyzer, new Timing(new SystemClock()), $config);
 
         self::$mockingClass = $mockingClass;
-        self::$requestHandler = (new RouterCompilerTest())->createMock(RequestHandlerInterface::class);
+        self::$requestHandler = $this->createMock(RequestHandlerInterface::class);
 
         $compiler->compile();
 
