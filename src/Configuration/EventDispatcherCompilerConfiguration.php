@@ -9,7 +9,4 @@ interface EventDispatcherCompilerConfiguration
     public function getEventDispatcherNamespace(): string;
 
     public function getEventDispatcherFilepath(): string;
-
-    /** @return string[] */
-    public function getAdditionalEventListeners(): array;
 }

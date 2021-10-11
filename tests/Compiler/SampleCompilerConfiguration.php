@@ -61,7 +61,7 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
         return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/preloading.php';
     }
 
-    public function getAdditionalClasses(): array
+    public function getAdditionalServices(): array
     {
         return [
             AnalyzerInterface::class => StandardAnalyzer::class,
@@ -141,16 +141,6 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
         return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/MiddlewareDispatcher.php';
     }
 
-    public function getAdditionalMiddlewares(): array
-    {
-        return [];
-    }
-
-    public function getAdditionalRouterClasses(): array
-    {
-        return [];
-    }
-
     public function getEventDispatcherNamespace(): string
     {
         return 'Riaf';
@@ -159,10 +149,5 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
     public function getEventDispatcherFilepath(): string
     {
         return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/EventDispatcher.php';
-    }
-
-    public function getAdditionalEventListeners(): array
-    {
-        return [];
     }
 }

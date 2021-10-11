@@ -9,9 +9,12 @@ use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionParameter;
+use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\RouterCompilerConfiguration;
+use Riaf\Configuration\ServiceDefinition;
 use Riaf\Routing\Route;
 use RuntimeException;
+use Throwable;
 
 class RouterCompiler extends BaseCompiler
 {
@@ -19,6 +22,11 @@ class RouterCompiler extends BaseCompiler
      * @var array<string, array>
      */
     private array $routingTree = [];
+
+    /**
+     * @var array<string, bool>
+     */
+    private array $recordedClasses = [];
 
     public function supportsCompilation(): bool
     {
@@ -40,7 +48,21 @@ class RouterCompiler extends BaseCompiler
             $this->analyzeClass($class);
         }
 
-        foreach ($config->getAdditionalRouterClasses() as $routerClass) {
+        foreach ($this->config->getAdditionalServices() as $definition) {
+            if (is_string($definition)) {
+                $routerClass = $definition;
+            } elseif ($definition instanceof ServiceDefinition) {
+                $routerClass = $definition->getClassName();
+            } elseif ($definition instanceof MiddlewareDefinition) {
+                try {
+                    $routerClass = $definition->getReflectionClass()->name;
+                } catch (Throwable) {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+
             if (class_exists($routerClass)) {
                 $this->analyzeClass(new ReflectionClass($routerClass));
             }
@@ -62,6 +84,11 @@ class RouterCompiler extends BaseCompiler
      */
     private function analyzeClass(ReflectionClass $class): void
     {
+        if (isset($this->recordedClasses[$class->name])) {
+            return;
+        }
+        $this->recordedClasses[$class->name] = true;
+
         $instance = null;
         $attributes = $class->getAttributes(Route::class);
 
@@ -267,8 +294,7 @@ HEADER
                         // Param is the Request itself
                         if ($type->name === ServerRequestInterface::class) {
                             $params[] = "$parameter->name: \$request";
-                        }
-                        // Param is another type (which may be in the Container)
+                        } // Param is another type (which may be in the Container)
                         else {
                             $params[] = "$parameter->name: \$this->container->has(\"$parameter->name\") ? \$this->container->get(\"$parameter->name\") : \$this->container->get(\"$type->name\")";
                         }

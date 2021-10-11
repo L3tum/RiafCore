@@ -16,14 +16,14 @@ use RuntimeException;
 
 abstract class BaseCompiler
 {
+    protected ?string $outputFile = null;
+
     private string $lineBreak = PHP_EOL;
 
     /**
      * @var resource|null
      */
     private $handle = null;
-
-    protected ?string $outputFile = null;
 
     public function __construct(protected AnalyzerInterface $analyzer, protected Timing $timing, protected BaseConfiguration $config)
     {

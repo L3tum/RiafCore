@@ -10,6 +10,7 @@ use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\ContainerCompilerConfiguration;
+use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
 use RuntimeException;
@@ -45,7 +46,7 @@ class ContainerCompiler extends BaseCompiler
         }
 
         // Then do a first look-over for ServiceDefinitions
-        foreach ($config->getAdditionalClasses() as $key => $value) {
+        foreach ($this->config->getAdditionalServices() as $key => $value) {
             if ($value instanceof ServiceDefinition) {
                 $className = $value->getClassName();
                 $this->services[$className] = $value;
@@ -77,9 +78,9 @@ class ContainerCompiler extends BaseCompiler
             }
         }
 
-        // Then go for all string-definitions
-        foreach ($config->getAdditionalClasses() as $key => $value) {
-            if (!($value instanceof ServiceDefinition)) {
+        // Then go for all string-definitions and middleware definitions
+        foreach ($this->config->getAdditionalServices() as $key => $value) {
+            if (is_string($value)) {
                 if (!class_exists($value)) {
                     throw new RuntimeException("Class $value does not exist!");
                 }
@@ -89,6 +90,18 @@ class ContainerCompiler extends BaseCompiler
                 // Add the key as a name for the service
                 if ($key !== $value && isset($this->services[$value])) {
                     $this->services[$key] = $this->services[$value];
+                }
+            } elseif ($value instanceof MiddlewareDefinition) {
+                try {
+                    $class = $value->getReflectionClass();
+                    $this->analyzeClass($class);
+
+                    // Add the key as a name for the service
+                    if ($key !== $class->name && isset($this->services[$class->name])) {
+                        $this->services[$key] = $this->services[$class->name];
+                    }
+                } catch (Throwable) {
+                    throw new RuntimeException('Class does not exist!');
                 }
             }
         }

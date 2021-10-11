@@ -125,7 +125,7 @@ class EventDispatcherTest extends TestCase
                 return $this->stream;
             }
 
-            public function getAdditionalEventListeners(): array
+            public function getAdditionalServices(): array
             {
                 return [EventListenerEventNotExisting::class];
             }
@@ -151,7 +151,7 @@ class EventDispatcherTest extends TestCase
                 return $this->stream;
             }
 
-            public function getAdditionalEventListeners(): array
+            public function getAdditionalServices(): array
             {
                 return [EventListenerMethodNotExisting::class];
             }
@@ -177,7 +177,7 @@ class EventDispatcherTest extends TestCase
                 return $this->stream;
             }
 
-            public function getAdditionalEventListeners(): array
+            public function getAdditionalServices(): array
             {
                 return ['Does-Not-Exist'];
             }
@@ -203,7 +203,7 @@ class EventDispatcherTest extends TestCase
                 return $this->stream;
             }
 
-            public function getAdditionalEventListeners(): array
+            public function getAdditionalServices(): array
             {
                 return [PrivateEventListener::class];
             }
@@ -229,7 +229,7 @@ class EventDispatcherTest extends TestCase
                 return $this->stream;
             }
 
-            public function getAdditionalEventListeners(): array
+            public function getAdditionalServices(): array
             {
                 return [ProtectedEventListener::class];
             }
@@ -260,7 +260,7 @@ class EventDispatcherTest extends TestCase
                 return $this->stream;
             }
 
-            public function getAdditionalEventListeners(): array
+            public function getAdditionalServices(): array
             {
                 return [SingleEventListener::class, MultiEventListener::class, StaticMethodListener::class];
             }

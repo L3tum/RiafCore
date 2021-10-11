@@ -8,11 +8,14 @@ use Psr\Http\Server\MiddlewareInterface;
 use ReflectionClass;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\MiddlewareDispatcherCompilerConfiguration;
+use Riaf\Configuration\ServiceDefinition;
 use Riaf\PsrExtensions\Middleware\Middleware;
 
 class MiddlewareDispatcherCompiler extends BaseCompiler
 {
-    // TODO: Write Tests
+    /** @var array<string, bool> */
+    private array $recordedMiddlewares = [];
+
     public function compile(): bool
     {
         $this->timing->start(self::class);
@@ -33,16 +36,25 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
             }
         }
 
-        foreach ($config->getAdditionalMiddlewares() as $additionalMiddleware) {
-            if (is_string($additionalMiddleware) && class_exists($additionalMiddleware)) {
-                $class = new ReflectionClass($additionalMiddleware);
+        foreach ($this->config->getAdditionalServices() as $additionalMiddleware) {
+            if (is_string($additionalMiddleware)) {
+                $className = $additionalMiddleware;
+            } elseif ($additionalMiddleware instanceof ServiceDefinition) {
+                $className = $additionalMiddleware->getClassName();
+            } elseif ($additionalMiddleware instanceof MiddlewareDefinition) {
+                $middlewares[] = $additionalMiddleware;
+                continue;
+            } else {
+                continue;
+            }
+
+            if (class_exists($className)) {
+                $class = new ReflectionClass($className);
                 $definition = $this->getMiddlewareDefinition($class);
 
                 if ($definition !== null) {
                     $middlewares[] = $definition;
                 }
-            } elseif ($additionalMiddleware instanceof MiddlewareDefinition) {
-                $middlewares[] = $additionalMiddleware;
             }
         }
 
@@ -63,6 +75,11 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
      */
     private function getMiddlewareDefinition(ReflectionClass $middleware): ?MiddlewareDefinition
     {
+        if (isset($this->recordedMiddlewares[$middleware->name])) {
+            return null;
+        }
+        $this->recordedMiddlewares[$middleware->name] = true;
+
         if (!$middleware->implementsInterface(MiddlewareInterface::class)) {
             return null;
         }

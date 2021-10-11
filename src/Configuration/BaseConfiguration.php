@@ -66,4 +66,20 @@ abstract class BaseConfiguration
     {
         return ($_SERVER['APP_ENV'] ?? 'dev') === 'dev';
     }
+
+    /**
+     * Must return an array of key-value strings
+     * Key: A class (can be abstract) or interface, or alias
+     * Value: An actual class-string, ServiceDefinition or MiddlewareDefinition.
+     *
+     * If Key is unequal Value, then Value is treated as the implementation for Key
+     * making both Key and Value available for injection.
+     *
+     * @return array<string, ServiceDefinition|MiddlewareDefinition|string>
+     * @noinspection PhpDocSignatureInspection
+     */
+    public function getAdditionalServices(): array
+    {
+        return [];
+    }
 }

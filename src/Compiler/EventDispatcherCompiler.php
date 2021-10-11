@@ -8,8 +8,11 @@ use Exception;
 use Psr\EventDispatcher\StoppableEventInterface;
 use ReflectionClass;
 use Riaf\Configuration\EventDispatcherCompilerConfiguration;
+use Riaf\Configuration\MiddlewareDefinition;
+use Riaf\Configuration\ServiceDefinition;
 use Riaf\PsrExtensions\EventDispatcher\Listener;
 use RuntimeException;
+use Throwable;
 
 class EventDispatcherCompiler extends BaseCompiler
 {
@@ -32,22 +35,29 @@ class EventDispatcherCompiler extends BaseCompiler
         $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
 
         foreach ($classes as $class) {
-            if (!isset($this->recordedClasses[$class->name])) {
-                $this->recordedClasses[$class->name] = true;
-                $this->analyzeClass($class);
-            }
+            $this->analyzeClass($class);
         }
 
-        foreach ($config->getAdditionalEventListeners() as $className) {
+        foreach ($this->config->getAdditionalServices() as $definition) {
+            if ($definition instanceof ServiceDefinition) {
+                $className = $definition->getClassName();
+            } elseif ($definition instanceof MiddlewareDefinition) {
+                try {
+                    $className = $definition->getReflectionClass()->name;
+                } catch (Throwable) {
+                    continue;
+                }
+            } elseif (is_string($definition)) {
+                $className = $definition;
+            } else {
+                continue;
+            }
+
             if (!class_exists($className)) {
                 throw new RuntimeException("Could not found additional listener $className");
             }
 
-            if (!isset($this->recordedClasses[$className])) {
-                $this->recordedClasses[$className] = true;
-                $class = new ReflectionClass($className);
-                $this->analyzeClass($class);
-            }
+            $this->analyzeClass(new ReflectionClass($className));
         }
 
         $this->generateHeader($config->getEventDispatcherNamespace());
@@ -65,6 +75,11 @@ class EventDispatcherCompiler extends BaseCompiler
      */
     private function analyzeClass(ReflectionClass $class): void
     {
+        if (isset($this->recordedClasses[$class->name])) {
+            return;
+        }
+        $this->recordedClasses[$class->name] = true;
+
         /** @var ReflectionClass<object> $class */
         $attributes = $class->getAttributes(Listener::class);
 
@@ -123,9 +138,11 @@ HEADER
             $this->writeLine(sprintf('public function dispatch%s(object $event): object', str_replace('\\', '_', $event)), 1);
             $this->writeLine('{', 2);
 
-            /** @noinspection PhpUnhandledExceptionInspection */
-            /** @psalm-suppress ArgumentTypeCoercion Is checked beforehand */
-            /** @phpstan-ignore-next-line */
+            /**
+             * @noinspection PhpUnhandledExceptionInspection
+             * @psalm-suppress ArgumentTypeCoercion Is checked beforehand
+             * @phpstan-ignore-next-line
+             */
             $eventClass = new ReflectionClass($event);
             $isStoppable = $eventClass->implementsInterface(StoppableEventInterface::class);
 
