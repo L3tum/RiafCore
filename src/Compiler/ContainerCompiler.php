@@ -51,10 +51,16 @@ class ContainerCompiler extends BaseCompiler
                 $className = $value->getClassName();
                 $class = $value->getReflectionClass();
 
+                // If the class does not exist, don't analyze it. Just pump it into the Container
                 if ($class === null) {
                     $this->services[$className] = $value;
                 } else {
                     $this->analyzeClass($class, $value);
+
+                    // If something went wrong during Analysis save the ServiceDefinition anyways
+                    if (!isset($this->services[$className])) {
+                        $this->services[$className] = $value;
+                    }
                 }
 
                 if ($key !== $className) {
@@ -66,7 +72,7 @@ class ContainerCompiler extends BaseCompiler
                 //      1. Check if it has been recorded as a service
                 //      2. Add the parameter to the list for separate methods
                 //      3. Check the fallback
-                $parameters = $value->getParameters();
+                $parameters = $this->services[$className]->getParameters();
                 foreach ($parameters as $parameter) {
                     while ($parameter !== null) {
                         if ($parameter->isInjected()) {
@@ -131,9 +137,14 @@ class ContainerCompiler extends BaseCompiler
             $this->constructionMethodCache[$configClass] = "new \\$configClass()";
         }
 
+        // Add some constants to Container
         if (!isset($this->services['coreDebug'])) {
             $this->services['coreDebug'] = new ServiceDefinition('coreDebug');
             $this->constructionMethodCache['coreDebug'] = '$this->get(\Riaf\Configuration\BaseConfiguration::class)->isDevelopmentMode()';
+        }
+        if (!isset($this->services['projectRoot'])) {
+            $this->services['projectRoot'] = new ServiceDefinition('projectRoot');
+            $this->constructionMethodCache['projectRoot'] = '$this->get(\Riaf\Configuration\BaseConfiguration::class)->getProjectRoot()';
         }
 
         $this->generateContainer();
