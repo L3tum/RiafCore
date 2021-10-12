@@ -48,6 +48,19 @@ final class ServiceDefinition
         return $this->parameters;
     }
 
+    #[Pure]
+    public function getParameter(string $name): ?ParameterDefinition
+    {
+        foreach ($this->parameters as $parameter) {
+            /** @var ParameterDefinition $parameter */
+            if ($parameter->getName() === $name) {
+                return $parameter;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @return ReflectionClass<object>|null
      */

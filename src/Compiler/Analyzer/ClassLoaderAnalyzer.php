@@ -1,39 +1,67 @@
 <?php
 
 declare(strict_types=1);
-//
-//declare(strict_types=1);
-//
+
 //namespace Riaf\Compiler\Analyzer;
 //
 //use Composer\Autoload\ClassLoader;
+//use Exception;
 //use Iterator;
+//use ParseError;
 //use ReflectionClass;
+//use Riaf\Metrics\Timing;
 //use RuntimeException;
+//use Throwable;
 //
 ///**
 // * @codeCoverageIgnore
 // */
 //class ClassLoaderAnalyzer implements AnalyzerInterface
 //{
-//    public function getUsedClasses(string $projectRoot): Iterator
+//    public function __construct(private Timing $timing)
 //    {
-//        throw new RuntimeException('This analyzer does not work. Because of classes like \'infection/extension-installer/src/Plugin.php\' that are registered as PSR-4 autoloads but parts of them (like this interface) cannot be autoloaded, this analyzer breaks completely and there is no way to check this beforehand or handle the error in any way.');
+//    }
+//
+//    public function getUsedClasses(string $projectRoot, array $forbiddenFiles = []): Iterator
+//    {
+//        $this->timing->start(self::class);
 //        /** @var ClassLoader $autoloader */
 //        $autoloader = require $projectRoot . '/vendor/autoload.php';
+//
+//        if (!$autoloader->isClassMapAuthoritative()) {
+//            throw new RuntimeException("You need to generate an authoritative classmap");
+//        }
+//
 //        $classMap = $autoloader->getClassMap();
 //
 //        foreach ($classMap as $class => $file) {
-//            if (class_exists($class, false) || interface_exists($class, false)) {
-//                yield new ReflectionClass($class);
+//            // Skip Traits
+//            if (trait_exists($class, false)) {
+//                continue;
 //            }
 //
-//            if (file_exists($file)) {
-//                if (!in_array($class, get_declared_classes()) && !in_array($class, get_declared_interfaces())) {
-//                    if (@include_once $file) {
-//                        yield new ReflectionClass($class);
-//                    }
-//                }
+//            if (class_exists($class, false) || interface_exists($class, false)) {
+//                $this->timing->stop(self::class);
+//                yield new ReflectionClass($class);
+//                $this->timing->start(self::class);
+//                continue;
+//            }
+//
+//            if (!@is_readable($file)) {
+//                continue;
+//            }
+//
+//            try {
+//                @eval(substr(file_get_contents($file), 6));
+//            } catch (ParseError | Throwable | Exception $e) {
+////                echo "Skipped $class because {$e->getMessage()}" . PHP_EOL;
+//                continue;
+//            }
+//
+//            if (class_exists($class) || interface_exists($class)) {
+//                $this->timing->stop(self::class);
+//                yield new ReflectionClass($class);
+//                $this->timing->start(self::class);
 //            }
 //        }
 //    }

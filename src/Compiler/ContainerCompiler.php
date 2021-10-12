@@ -49,10 +49,16 @@ class ContainerCompiler extends BaseCompiler
         foreach ($this->config->getAdditionalServices() as $key => $value) {
             if ($value instanceof ServiceDefinition) {
                 $className = $value->getClassName();
-                $this->services[$className] = $value;
+                $class = $value->getReflectionClass();
+
+                if ($class === null) {
+                    $this->services[$className] = $value;
+                } else {
+                    $this->analyzeClass($class, $value);
+                }
 
                 if ($key !== $className) {
-                    $this->services[$key] = $value;
+                    $this->services[$key] = $this->services[$className];
                 }
 
                 // Go over the defined parameters
@@ -140,7 +146,7 @@ class ContainerCompiler extends BaseCompiler
     /**
      * @param ReflectionClass<object> $class
      */
-    private function analyzeClass(ReflectionClass $class): void
+    private function analyzeClass(ReflectionClass $class, ?ServiceDefinition $predefinedDefinition = null): void
     {
         $className = $class->getName();
 
@@ -194,6 +200,13 @@ class ContainerCompiler extends BaseCompiler
         if ($constructor !== null) {
             $parameters = [];
             foreach ($constructor->getParameters() as $parameter) {
+                $predefinedParameter = $predefinedDefinition?->getParameter($parameter->name);
+
+                if ($predefinedParameter !== null) {
+                    $parameters[] = $predefinedParameter;
+                    continue;
+                }
+
                 $param = ParameterDefinition::createInjected($parameter->name, $parameter->name);
                 $parameters[] = $param;
 

@@ -103,7 +103,7 @@ abstract class BaseCompiler
         if ($this->handle === null) {
             $this->outputFile = $this->config->getProjectRoot() . $path;
             $this->backingHandle = fopen($this->outputFile, 'wb+') ?: null;
-            $this->handle = fopen('php://memory', 'wb+');
+            $this->handle = fopen('php://memory', 'wb+') ?: null;
         }
 
         if ($this->handle === null) {
