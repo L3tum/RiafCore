@@ -72,6 +72,10 @@ class ContainerCompiler extends BaseCompiler
                 //      1. Check if it has been recorded as a service
                 //      2. Add the parameter to the list for separate methods
                 //      3. Check the fallback
+                /**
+                 * @psalm-suppress PossiblyFalseReference Explicitly set above...
+                 * @phpstan-ignore-next-line Explicitly set above, why is this so hard you stupid static analyzers
+                 */
                 $parameters = $this->services[$className]->getParameters();
                 foreach ($parameters as $parameter) {
                     while ($parameter !== null) {
