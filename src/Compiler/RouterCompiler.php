@@ -232,7 +232,7 @@ HEADER
                 $this->writeLine('{', $index + 3);
                 $this->writeLine("\$capturedParams[\"$parameter\"] = \$matches[0];", $index + 4);
             } else { // Parameter without requirement
-                $this->writeLine("if(count(\$uriParts) >= $count)");
+                $this->writeLine("if(count(\$uriParts) >= $count)", $index + 3);
                 $this->writeLine('{', $index + 3);
                 $this->writeLine("\$capturedParams[\"$parameter\"] = \$uriParts[$index];", $index + 4);
             }
