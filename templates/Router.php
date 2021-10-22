@@ -3,9 +3,25 @@
 /** @var string $namespace */
 /** @var array<string, StaticRoute> $staticRoutes */
 /** @var array<string, array<string, mixed>> $routingTree */
-/** @var \Riaf\Compiler\RouterCompiler $compiler */
+/** @var RouterCompiler $compiler */
 
 use Riaf\Compiler\Router\StaticRoute;
+use Riaf\Compiler\RouterCompiler;
+
+if (!function_exists('includeLeaf')) {
+    function includeLeaf(string $uri, array $route, int $indentation, bool $firstRoute, array $capturedParams, RouterCompiler $compiler): void
+    {
+        include __DIR__ . '/RouteLeaf.php';
+    }
+}
+
+if (!function_exists('writeLine')) {
+    function writeLine(string $line, ?int $indentation = null): void
+    {
+        $indentation = $indentation ?? 0;
+        echo sprintf('%s%s%s', implode('', array_fill(0, $indentation, "\t")), $line, PHP_EOL);
+    }
+}
 
 echo '<?php' . PHP_EOL;
 
@@ -35,13 +51,6 @@ class Router implements MiddlewareInterface, RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        return $this->resolveStaticRoute($request)
-            ?? $this->resolveDynamicRoute($request)
-            ?? $this->container->get(ResponseFactoryInterface::class)->createResponse(404);
-    }
-
-    private function resolveStaticRoute(ServerRequestInterface $request): ?ResponseInterface
-    {
         $combined = sprintf("%s_%s", $request->getMethod(), $request->getUri()->getPath());
         return match ($combined)
         {
@@ -64,11 +73,11 @@ class Router implements MiddlewareInterface, RequestHandlerInterface
         );
     }
 ?>
-            default => null
+            default => $this->handleDynamicRoute($request)
         };
     }
 
-    private function resolveDynamicRoute(ServerRequestInterface $request): ?ResponseInterface
+    private function handleDynamicRoute(ServerRequestInterface $request): ?ResponseInterface
     {
         $uriParts = explode('/', $request->getUri()->getPath());
         $countParts = count($uriParts);
@@ -96,6 +105,6 @@ class Router implements MiddlewareInterface, RequestHandlerInterface
     }
 ?>
 
-        return null;
+        return $this->container->get(ResponseFactoryInterface::class)->createResponse(404);
     }
 }

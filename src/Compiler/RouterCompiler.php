@@ -125,6 +125,9 @@ class RouterCompiler extends BaseCompiler
         }
     }
 
+    /**
+     * @psalm-suppress PossiblyInvalidArrayOffset PHPStan gets it
+     */
     private function analyzeRoute(Route $route, string $targetClass, string $targetMethod): void
     {
         if (!str_contains($route->getRoute(), '{')) {
@@ -140,6 +143,9 @@ class RouterCompiler extends BaseCompiler
             $this->routingTree[$route->getMethod()] = [];
         }
 
+        /**
+         * @var array<string, mixed> $currentRouting
+         */
         $currentRouting = &$this->routingTree[$route->getMethod()];
 
         $routingParts = explode('/', $route->getRoute());
@@ -156,10 +162,21 @@ class RouterCompiler extends BaseCompiler
 
             if (!isset($currentRouting[$part])) {
                 $currentRouting[$part] = ['index' => $key];
+            }
 
-                if ($parameter !== null) {
-                    $currentRouting[$part]['parameter'] = $parameter;
-                    $currentRouting[$part]['pattern'] = $requirement;
+            if ($parameter !== null) {
+                $currentRouting[$part]['parameter'] = $parameter;
+                $currentRouting[$part]['pattern'] = $requirement;
+
+                // Check if we should capture the parameter
+                if (!isset($currentRouting[$part]['capture']) || $currentRouting[$part]['capture'] === false) {
+                    $currentRouting[$part]['capture'] = false;
+                    foreach ($this->getParameters($targetClass, $targetMethod) as $param) {
+                        if ($param->name === $parameter) {
+                            $currentRouting[$part]['capture'] = true;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -179,6 +196,24 @@ class RouterCompiler extends BaseCompiler
     }
 
     /**
+     * @return ReflectionParameter[]
+     */
+    private function getParameters(string $class, string $method): array
+    {
+        if (class_exists($class)) {
+            $reflectionClass = new ReflectionClass($class);
+
+            if ($reflectionClass->hasMethod($method)) {
+                $reflectionMethod = $reflectionClass->getMethod($method);
+
+                return $reflectionMethod->getParameters();
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * @param StaticRoute[]                       $staticRoutes
      * @param array<string, array<string, mixed>> $routingTree
      */
@@ -191,11 +226,11 @@ class RouterCompiler extends BaseCompiler
     }
 
     /**
-     * @internal
-     *
      * @param array<string, true> $capturedParams
      *
      * @return string[]
+     *
+     * @internal
      */
     public function generateParams(string $class, string $method, array $capturedParams = []): array
     {
@@ -261,23 +296,5 @@ class RouterCompiler extends BaseCompiler
         }
 
         return $params;
-    }
-
-    /**
-     * @return ReflectionParameter[]
-     */
-    private function getParameters(string $class, string $method): array
-    {
-        if (class_exists($class)) {
-            $reflectionClass = new ReflectionClass($class);
-
-            if ($reflectionClass->hasMethod($method)) {
-                $reflectionMethod = $reflectionClass->getMethod($method);
-
-                return $reflectionMethod->getParameters();
-            }
-        }
-
-        return [];
     }
 }

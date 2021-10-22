@@ -12,42 +12,35 @@ declare(strict_types=1);
 
 use Riaf\Compiler\RouterCompiler;
 
-if (!function_exists('includeLeaf')) {
-    function includeLeaf(string $uri, array $route, int $indentation, bool $firstRoute, array $capturedParams, RouterCompiler $compiler): void
-    {
-        include __DIR__ . '/RouteLeaf.php';
-    }
-}
-
-if (!function_exists('writeLine')) {
-    function writeLine(string $line, ?int $indentation = null): void
-    {
-        $indentation = $indentation ?? 0;
-        echo sprintf('%s%s%s', implode('', array_fill(0, $indentation, "\t")), $line, PHP_EOL);
-    }
-}
-
 $index = $route['index'];
 $count = $index + 1;
+$check = $firstRoute ? 'if' : 'elseif';
+$needClosingBraces = true;
 // Parameter
 if (isset($route['parameter'])) {
     $parameter = (string) $route['parameter'];
     $pattern = $route['pattern'] ?? null;
+    $capture = $route['capture'];
 
     if ($pattern !== null) { // Parameter with Requirement
-        writeLine("if(preg_match(\"/^$pattern$/\", \$uriParts[$index], \$matches) === 1)", $indentation);
+        writeLine("$check (preg_match(\"/^$pattern$/\", \$uriParts[$index], \$matches) === 1)", $indentation);
         writeLine('{', $indentation);
-        writeLine("\$capturedParams[\"$parameter\"] = \$matches[0];", $indentation + 1);
+        if ($capture) {
+            writeLine("\$capturedParams[\"$parameter\"] = \$matches[0];", $indentation + 1);
+            $capturedParams[$parameter] = true;
+        }
     } else { // Parameter without requirement
-        writeLine("if(\$countParts >= $count)", $indentation);
-        writeLine('{', $indentation);
-        writeLine("\$capturedParams[\"$parameter\"] = \$uriParts[$index];", $indentation + 1);
+        if ($capture) {
+            // We don't need to go down one step so reduce indentation of the rest of the generated code
+            --$indentation;
+            $needClosingBraces = false;
+            writeLine("\$capturedParams[\"$parameter\"] = \$uriParts[$index] ?? null;", $indentation + 1);
+            $capturedParams[$parameter] = true;
+        }
     }
-
-    $capturedParams[$parameter] = true;
 } // Normal route
 else {
-    writeLine("if(\$uriParts[$index] === \"$uri\")", $indentation);
+    writeLine("$check (\$uriParts[$index] === \"$uri\")", $indentation);
     writeLine('{', $indentation);
 }
 
@@ -83,4 +76,6 @@ if (isset($route['next'])) {
     }
 }
 
-writeLine('}', $indentation);
+if ($needClosingBraces) {
+    writeLine('}', $indentation);
+}
