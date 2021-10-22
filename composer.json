@@ -50,10 +50,10 @@
     "phpunit": "XDEBUG_MODE=coverage vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox --coverage-text tests",
     "phpcs": "tools/php-cs-fixer/vendor/bin/php-cs-fixer fix",
     "infection": "XDEBUG_MODE=coverage vendor/bin/infection --show-mutations --only-covered",
-    "post-install-cmd": "composer install-tools",
-    "post-update-cmd": "composer update-tools",
-    "install-tools": "cd tools/php-cs-fixer && composer install && cd ../phpbench && composer install",
-    "update-tools": "cd tools/php-cs-fixer && composer update && cd ../phpbench && composer update",
+    "post-install-cmd": "@install-tools",
+    "post-update-cmd": "@update-tools",
+    "install-tools": "cd tools/php-cs-fixer && composer install",
+    "update-tools": "cd tools/php-cs-fixer && composer update",
     "compile": "bin/compile \"\\Riaf\\Compiler\\SampleCompilerConfiguration\""
   }
 }
