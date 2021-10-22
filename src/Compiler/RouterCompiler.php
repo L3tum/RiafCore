@@ -9,6 +9,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionParameter;
+use Riaf\Compiler\Router\StaticRoute;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\RouterCompilerConfiguration;
 use Riaf\Configuration\ServiceDefinition;
@@ -19,9 +20,14 @@ use Throwable;
 class RouterCompiler extends BaseCompiler
 {
     /**
-     * @var array<string, array>
+     * @var array<string, array<string, mixed>>
      */
     private array $routingTree = [];
+
+    /**
+     * @var StaticRoute[]
+     */
+    private array $staticRoutes = [];
 
     /**
      * @var array<string, bool>
@@ -39,6 +45,7 @@ class RouterCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
+
         /** @var RouterCompilerConfiguration $config */
         $config = $this->config;
         $this->openResultFile($config->getRouterFilepath());
@@ -68,9 +75,7 @@ class RouterCompiler extends BaseCompiler
             }
         }
 
-        $this->generateHeader();
-        $this->generateRoutingTree();
-        $this->generateEnding();
+        $this->generateRouter($this->staticRoutes, $this->routingTree, $config->getRouterNamespace());
 
         $this->timing->stop(self::class);
 
@@ -122,6 +127,15 @@ class RouterCompiler extends BaseCompiler
 
     private function analyzeRoute(Route $route, string $targetClass, string $targetMethod): void
     {
+        if (!str_contains($route->getRoute(), '{')) {
+            if (isset($this->staticRoutes[$route->getRoute()])) {
+                throw new RuntimeException('Duplicated Route ' . $route->getRoute());
+            }
+            $this->staticRoutes[$route->getRoute()] = new StaticRoute($route->getRoute(), $route->getMethod(), $targetClass, $targetMethod);
+
+            return;
+        }
+
         if (!isset($this->routingTree[$route->getMethod()])) {
             $this->routingTree[$route->getMethod()] = [];
         }
@@ -132,194 +146,121 @@ class RouterCompiler extends BaseCompiler
         $lastRoute = array_key_last($routingParts);
 
         foreach ($routingParts as $key => $part) {
-            if (!isset($currentRouting[$part])) {
-                $currentRouting[$part] = ['index' => $key];
-            }
-
+            $parameter = null;
+            $requirement = null;
             if (str_starts_with($part, '{')) {
                 $parameter = trim($part, '{}');
                 $requirement = $route->getRequirement($parameter);
-                $currentRouting[$part]['requirement'] = ['parameter' => $parameter, 'pattern' => $requirement];
+                $part = "\{$parameter=$requirement}";
+            }
+
+            if (!isset($currentRouting[$part])) {
+                $currentRouting[$part] = ['index' => $key];
+
+                if ($parameter !== null) {
+                    $currentRouting[$part]['parameter'] = $parameter;
+                    $currentRouting[$part]['pattern'] = $requirement;
+                }
             }
 
             if ($key === $lastRoute) {
+                if (isset($currentRouting[$part]['call'])) {
+                    throw new RuntimeException('Duplicated route ' . $route->getRoute());
+                }
+
                 $currentRouting[$part]['call'] = ['class' => $targetClass, 'method' => $targetMethod];
             } else {
                 if (!isset($currentRouting[$part]['next'])) {
                     $currentRouting[$part]['next'] = [];
                 }
-
                 $currentRouting = &$currentRouting[$part]['next'];
             }
         }
     }
 
-    private function generateHeader(): void
+    /**
+     * @param StaticRoute[]                       $staticRoutes
+     * @param array<string, array<string, mixed>> $routingTree
+     */
+    private function generateRouter(array $staticRoutes, array $routingTree, string $namespace): void
     {
-        if ($this->config instanceof RouterCompilerConfiguration) {
-            /** @var RouterCompilerConfiguration $config */
-            $config = $this->config;
-            $this->writeLine('<?php');
-
-            $namespace = $config->getRouterNamespace();
-            $this->writeLine(
-                <<<HEADER
-namespace $namespace;
-
-use Psr\Http\Server\RequestHandlerInterface;
-use Psr\Container\ContainerInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
-use Psr\Http\Server\MiddlewareInterface;
-use Riaf\PsrExtensions\Middleware\Middleware;
-
-#[Middleware(-100)]
-class Router implements MiddlewareInterface, RequestHandlerInterface
-{
-    public function __construct(private ContainerInterface \$container)
-    {
-    }
-    
-    public function process(ServerRequestInterface \$request, RequestHandlerInterface \$handler): ResponseInterface
-    {
-        return \$this->handle(\$request);
-    }
-    
-    public function handle(ServerRequestInterface \$request): ResponseInterface
-    {
-        \$capturedParams = [];
-HEADER
-            );
-        }
-    }
-
-    private function generateRoutingTree(): void
-    {
-        if (count($this->routingTree) > 0) {
-            $this->writeLine('$uriParts = explode("/", $request->getUri()->getPath());', 2);
-        }
-
-        foreach ($this->routingTree as $key => $tree) {
-            $this->writeLine("if(\$request->getMethod() === \"$key\")", 2);
-            $this->writeLine('{', 2);
-            $currentTree = $this->routingTree[$key];
-
-            foreach ($currentTree as $matching => $next) {
-                $this->generateLeaf((string) $matching, $next);
-            }
-
-            $this->writeLine('}', 2);
-        }
+        $compiler = $this;
+        ob_start();
+        require dirname(__DIR__, 2) . '/templates/Router.php';
+        $this->writeLine(ob_get_clean() ?: '');
     }
 
     /**
-     * @param array{index: int, requirement: array<string, string|null>, call: array<string, string>} $values
-     * @param array<string, bool>                                                                     $capturedParams
+     * @internal
+     *
+     * @param array<string, true> $capturedParams
+     *
+     * @return string[]
      */
-    private function generateLeaf(string $key, array $values, array $capturedParams = []): void
+    public function generateParams(string $class, string $method, array $capturedParams = []): array
     {
-        $index = $values['index'];
-        $count = $index + 1;
-        // Parameter
-        if (isset($values['requirement'])) {
-            $requirement = $values['requirement'];
-            $parameter = (string) $requirement['parameter'];
-            $pattern = $requirement['pattern'];
+        $params = [];
 
-            if ($pattern !== null) { // Parameter with Requirement
-                $this->writeLine("if(preg_match(\"/^$pattern$/\", \$uriParts[$index], \$matches) === 1)", $index + 3);
-                $this->writeLine('{', $index + 3);
-                $this->writeLine("\$capturedParams[\"$parameter\"] = \$matches[0];", $index + 4);
-            } else { // Parameter without requirement
-                $this->writeLine("if(count(\$uriParts) >= $count)", $index + 3);
-                $this->writeLine('{', $index + 3);
-                $this->writeLine("\$capturedParams[\"$parameter\"] = \$uriParts[$index];", $index + 4);
-            }
-
-            $capturedParams[$parameter] = true;
-        } // Normal route
-        else {
-            $this->writeLine("if(\$uriParts[$index] === \"$key\")", $index + 3);
-            $this->writeLine('{', $index + 3);
-        }
-
-        if (!isset($values['next'])) {
-            if (isset($values['call'])) {
-                $class = $values['call']['class'];
-                $method = $values['call']['method'];
-
-                $this->writeLine("if(count(\$uriParts) === $count)", $index + 4);
-                $this->writeLine('{', $index + 4);
-
-                $params = [];
-
-                foreach ($this->getParameters($class, $method) as $parameter) {
-                    if ($parameter->isDefaultValueAvailable()) {
-                        $defaultValue = $parameter->getDefaultValue();
-                        if (!is_object($defaultValue) && !is_array($defaultValue)) {
-                            if (is_string($defaultValue)) {
-                                $defaultValue = "\"$defaultValue\"";
-                            } elseif (null === $defaultValue) {
-                                $defaultValue = 'null';
-                            } elseif (is_bool($defaultValue)) {
-                                $defaultValue = $defaultValue ? 'true' : 'false';
-                            }
-                            $params[] = "$parameter->name: $defaultValue";
-                            continue;
-                        }
-                    }
-
-                    // Has captured the parameter
-                    if (isset($capturedParams[$parameter->name])) {
-                        // If Type isn't null, then it's a built-in type.
-                        // So we need to cast the captured param into the appropriate type
-                        // and hope that it's correct...
-                        // Exception is string, since the URI is already a string.
-                        if ($parameter->getType() instanceof ReflectionNamedType && $parameter->getType()->getName() !== 'string') {
-                            $type = $parameter->getType()->getName();
-                            $params[] = "$parameter->name: ($type)\$capturedParams[\"$parameter->name\"]";
-                        }
-                        // Type is not named (therefore there may be no type-hint at all) or string,
-                        // so we do not need to care about it.
-                        else {
-                            $params[] = "$parameter->name: \$capturedParams[\"$parameter->name\"]";
-                        }
-                        continue;
-                    }
-
-                    $type = $this->getReflectionClassFromReflectionType($parameter->getType());
-
-                    if ($type !== null) {
-                        // Param is the Request itself
-                        if ($type->name === ServerRequestInterface::class) {
-                            $params[] = "$parameter->name: \$request";
-                        } // Param is another type (which may be in the Container)
-                        else {
-                            $params[] = "$parameter->name: \$this->container->has(\"$parameter->name\") ? \$this->container->get(\"$parameter->name\") : \$this->container->get(\"$type->name\")";
-                        }
-                    } else {
-                        // Could not find Type, last chance is the name of the parameter
-                        $params[] = "$parameter->name: \$this->container->get(\"$parameter->name\")";
-                    }
+        foreach ($this->getParameters($class, $method) as $parameter) {
+            // Has captured the parameter
+            if (isset($capturedParams[$parameter->name])) {
+                // If Type isn't null, then it's a built-in type.
+                // So we need to cast the captured param into the appropriate type
+                // and hope that it's correct...
+                // Exception is string, since the URI is already a string.
+                if ($parameter->getType() instanceof ReflectionNamedType && $parameter->getType()->getName() !== 'string') {
+                    $type = $parameter->getType()->getName();
+                    $params[] = "$parameter->name: ($type)\$capturedParams[\"$parameter->name\"]";
                 }
+                // Type is not named (therefore there may be no type-hint at all) or string,
+                // so we do not need to care about it.
+                else {
+                    $params[] = "$parameter->name: \$capturedParams[\"$parameter->name\"]";
+                }
+                continue;
+            }
 
-                $parameter = implode(', ', $params);
-                $this->writeLine("return \$this->container->get(\"$class\")->$method($parameter);", $index + 5);
-                $this->writeLine('}', $index + 4);
+            $type = $this->getReflectionClassFromReflectionType($parameter->getType());
+
+            if ($type !== null && $type->name === ServerRequestInterface::class) {
+                // Param is the Request itself
+                $params[] = "$parameter->name: \$request";
+                continue;
+            }
+
+            $param = "$parameter->name: ";
+
+            if ($type !== null) {
+                $param .= "\$this->container->has(\"$type->name\") ? \$this->container->get(\"$type->name\") : ";
+            }
+
+            $defaultValue = null;
+
+            if ($parameter->isDefaultValueAvailable()) {
+                $defaultValue = $parameter->getDefaultValue();
+                if (!is_object($defaultValue) && !is_array($defaultValue)) {
+                    if (is_string($defaultValue)) {
+                        $defaultValue = "\"$defaultValue\"";
+                    } elseif (null === $defaultValue) {
+                        $defaultValue = 'null';
+                    } elseif (is_bool($defaultValue)) {
+                        $defaultValue = $defaultValue ? 'true' : 'false';
+                    }
+                } else {
+                    $defaultValue = null;
+                }
+            }
+
+            if ($defaultValue === null) {
+                $param .= "\$this->container->get(\"$parameter->name\")";
             } else {
-                // TODO: Exception
-                throw new RuntimeException('Invalid Routing Configuration');
+                $param .= "\$this->container->has(\"$parameter->name\") ? \$this->container->get(\"$parameter->name\") : $defaultValue";
             }
-        } else {
-            $next = $values['next'];
 
-            foreach ($next as $matching => $value) {
-                $this->generateLeaf($matching, $value, $capturedParams);
-            }
+            $params[] = $param;
         }
 
-        $this->writeLine('}', $index + 3);
+        return $params;
     }
 
     /**
@@ -338,12 +279,5 @@ HEADER
         }
 
         return [];
-    }
-
-    public function generateEnding(): void
-    {
-        $this->writeLine('return $this->container->get(ResponseFactoryInterface::class)->createResponse(404);', 2);
-        $this->writeLine('}', 1);
-        $this->writeLine('}');
     }
 }

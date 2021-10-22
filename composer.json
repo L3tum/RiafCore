@@ -44,7 +44,7 @@
     }
   },
   "scripts": {
-    "psalm": "vendor/bin/psalm --show-info=true",
+    "psalm": "vendor/bin/psalm --show-info=true --no-diff --threads=16",
     "phpstan": "vendor/bin/phpstan analyze -l 7 src",
     "test": "vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox tests",
     "phpunit": "XDEBUG_MODE=coverage vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox --coverage-text tests",

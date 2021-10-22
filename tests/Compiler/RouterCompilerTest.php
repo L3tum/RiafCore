@@ -274,6 +274,7 @@ class RouterCompilerTest extends TestCase
         self::$mockingClass = $mockingClass;
         self::$requestHandler = $this->createMock(RequestHandlerInterface::class);
 
+        $compiler->supportsCompilation();
         $compiler->compile();
 
         $stream = $config->getFileHandle($compiler);
