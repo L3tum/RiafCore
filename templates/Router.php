@@ -1,7 +1,7 @@
 <?php declare(strict_types=1);
 
 /** @var string $namespace */
-/** @var array<string, StaticRoute> $staticRoutes */
+/** @var array<string, array<string, StaticRoute>> $staticRoutes */
 /** @var array<string, array<string, mixed>> $routingTree */
 /** @var RouterCompiler $compiler */
 
@@ -64,38 +64,52 @@ class Router implements MiddlewareInterface, RequestHandlerInterface
     {
 <?php
     if (count($staticRoutes) > 0) {
-        writeLine('$combined = "{$request->getMethod()}_{$request->getUri()->getPath()}";', 2);
-        writeLine('return match ($combined)', 2);
+        writeLine('$method = $request->getMethod();', 2);
+        writeLine('$path = $request->getUri()->getPath();', 2);
+        writeLine('return match ($method)', 2);
         writeLine('{', 2);
-        foreach ($staticRoutes as $route => $staticRoute) {
-            $method = $staticRoute->getMethod();
-            $targetClass = $staticRoute->getTargetClass();
-            $targetMethod = $staticRoute->getTargetMethod();
-            /**
-             * @psalm-suppress InternalMethod
-             * @phpstan-ignore-next-line
-             */
-            $params = implode(', ', $compiler->generateParams($targetClass, $targetMethod));
-            writeLine(
-                "\"{$method}_{$route}\" => \$this->container->get(\"{$targetClass}\")->{$targetMethod}({$params}),",
-                3
-            );
+        foreach ($staticRoutes as $method => $routeCollection) {
+            writeLine("\"$method\" => match(\$path) {", 3);
+
+            foreach ($routeCollection as $route => $staticRoute) {
+                $targetClass = $staticRoute->getTargetClass();
+                $targetMethod = $staticRoute->getTargetMethod();
+                /**
+                 * @psalm-suppress InternalMethod
+                 * @phpstan-ignore-next-line
+                 */
+                $params = implode(', ', $compiler->generateParams($targetClass, $targetMethod));
+                writeLine(
+                    "\"$route\" => \$this->container->get(\"{$targetClass}\")->{$targetMethod}({$params}),",
+                    4
+                );
+            }
+
+            if (count($routingTree) > 0) {
+                writeLine('default => $this->handleDynamicRoute($method, $path, $request)', 4);
+            } else {
+                writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 4);
+            }
+            writeLine('},', 3);
         }
-        writeLine('default => $this->handleDynamicRoute($request)', 3);
+        if (count($routingTree) > 0) {
+            writeLine('default => $this->handleDynamicRoute($method, $path, $request)', 3);
+        } else {
+            writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 3);
+        }
         writeLine('};', 2);
     } elseif (count($routingTree) > 0) {
-        writeLine('return $this->handleDynamicRoute($request);', 2);
+        writeLine('return $this->handleDynamicRoute($method, $path, $request);', 2);
     } else {
         writeLine('return $this->container->get(ResponseFactoryInterface::class)->createResponse(404);', 2);
     }
 ?>
     }
 
-    private function handleDynamicRoute(ServerRequestInterface $request): ?ResponseInterface
+    private function handleDynamicRoute(string $method, string $path, ServerRequestInterface $request): ?ResponseInterface
     {
-        $uriParts = explode('/', $request->getUri()->getPath());
+        $uriParts = explode('/', $path);
         $countParts = count($uriParts);
-        $method = $request->getMethod();
         /** @var array<string, string> $capturedParams */
         $capturedParams = [];
 
@@ -123,37 +137,47 @@ class Router implements MiddlewareInterface, RequestHandlerInterface
     {
 <?php
     if (count($staticRoutes) > 0) {
-        writeLine('$combined = "{$request->getMethod()}_{$request->getUri()->getPath()}";', 2);
-        writeLine('return match ($combined)', 2);
+        writeLine('$method = $request->getMethod();', 2);
+        writeLine('$path = $request->getUri()->getPath();', 2);
+        writeLine('return match ($method)', 2);
         writeLine('{', 2);
-        foreach ($staticRoutes as $route => $staticRoute) {
-            $method = $staticRoute->getMethod();
-            $targetClass = $staticRoute->getTargetClass();
-            $targetMethod = $staticRoute->getTargetMethod();
-            /**
-             * @psalm-suppress InternalMethod
-             * @phpstan-ignore-next-line
-             */
-            writeLine(
-                "\"{$method}_{$route}\" => \"{$targetClass}::{$targetMethod}\",",
-                3
-            );
+        foreach ($staticRoutes as $method => $routeCollection) {
+            writeLine("\"$method\" => match(\$path) {", 3);
+
+            foreach ($routeCollection as $route => $staticRoute) {
+                $targetClass = $staticRoute->getTargetClass();
+                $targetMethod = $staticRoute->getTargetMethod();
+                writeLine(
+                    "\"$route\" => \"$targetClass::$targetMethod\",",
+                    4
+                );
+            }
+
+            if (count($routingTree) > 0) {
+                writeLine('default => $this->matchDynamicRoute($method, $path)', 4);
+            } else {
+                writeLine('default => null', 4);
+            }
+            writeLine('},', 3);
         }
-        writeLine('default => $this->matchDynamicRoute($request)', 3);
+        if (count($routingTree) > 0) {
+            writeLine('default => $this->matchDynamicRoute($method, $path)', 3);
+        } else {
+            writeLine('default => null', 3);
+        }
         writeLine('};', 2);
     } elseif (count($routingTree) > 0) {
-        writeLine('return $this->matchDynamicRoute($request);', 2);
+        writeLine('return $this->matchDynamicRoute($method, $path);', 2);
     } else {
         writeLine('return null;', 2);
     }
 ?>
     }
 
-    private function matchDynamicRoute(ServerRequestInterface $request): ?string
+    private function matchDynamicRoute(string $method, string $path): ?string
     {
-        $uriParts = explode('/', $request->getUri()->getPath());
+        $uriParts = explode('/', $path);
         $countParts = count($uriParts);
-        $method = $request->getMethod();
 
 <?php
     $firstOne = true;

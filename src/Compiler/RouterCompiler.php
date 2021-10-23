@@ -25,7 +25,7 @@ class RouterCompiler extends BaseCompiler
     private array $routingTree = [];
 
     /**
-     * @var StaticRoute[]
+     * @var array<string, array<string, StaticRoute>>
      */
     private array $staticRoutes = [];
 
@@ -131,10 +131,13 @@ class RouterCompiler extends BaseCompiler
     private function analyzeRoute(Route $route, string $targetClass, string $targetMethod): void
     {
         if (!str_contains($route->getRoute(), '{')) {
-            if (isset($this->staticRoutes[$route->getRoute()])) {
+            if (!isset($this->staticRoutes[$route->getMethod()])) {
+                $this->staticRoutes[$route->getMethod()] = [];
+            }
+            if (isset($this->staticRoutes[$route->getMethod()][$route->getRoute()])) {
                 throw new RuntimeException('Duplicated Route ' . $route->getRoute());
             }
-            $this->staticRoutes[$route->getRoute()] = new StaticRoute($route->getRoute(), $route->getMethod(), $targetClass, $targetMethod);
+            $this->staticRoutes[$route->getMethod()][$route->getRoute()] = new StaticRoute($route->getRoute(), $route->getMethod(), $targetClass, $targetMethod);
 
             return;
         }
@@ -214,8 +217,8 @@ class RouterCompiler extends BaseCompiler
     }
 
     /**
-     * @param StaticRoute[]                       $staticRoutes
-     * @param array<string, array<string, mixed>> $routingTree
+     * @param array<string, array<string, StaticRoute>> $staticRoutes
+     * @param array<string, array<string, mixed>>       $routingTree
      */
     private function generateRouter(array $staticRoutes, array $routingTree, string $namespace): void
     {
