@@ -133,12 +133,10 @@ class Router implements MiddlewareInterface, RequestHandlerInterface
         return $this->container->get(ResponseFactoryInterface::class)->createResponse(404);
     }
 
-    public function matchRoute(ServerRequestInterface $request): ?string
+    public function matchRoute(string $method, string $path): ?string
     {
 <?php
     if (count($staticRoutes) > 0) {
-        writeLine('$method = $request->getMethod();', 2);
-        writeLine('$path = $request->getUri()->getPath();', 2);
         writeLine('return match ($method)', 2);
         writeLine('{', 2);
         foreach ($staticRoutes as $method => $routeCollection) {
