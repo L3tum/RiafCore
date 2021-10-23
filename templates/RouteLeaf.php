@@ -67,7 +67,7 @@ if (isset($route['call'])) {
 if (isset($route['next'])) {
     $firstIncluded = true;
     foreach ($route['next'] as $newUri => $newRoute) {
-        includeLeaf($newUri, $newRoute, $indentation + 1, $firstIncluded, $capturedParams, $compiler);
+        includeLeaf($newUri, $newRoute, $indentation + 1, $firstIncluded, $capturedParams, $compiler, $generateCall);
         $firstIncluded = false;
     }
 }
