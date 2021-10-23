@@ -7,6 +7,7 @@ declare(strict_types=1);
 /** @var bool $firstRoute */
 /** @var int $indentation */
 /** @var string $uri */
+/** @var bool $generateCall */
 
 /** @var array<string, mixed> $route */
 
@@ -47,24 +48,19 @@ else {
 if (isset($route['call'])) {
     $class = $route['call']['class'];
     $method = $route['call']['method'];
+    /**
+     * @psalm-suppress InternalMethod
+     * @phpstan-ignore-next-line
+     */
+    $params = implode(', ', $compiler->generateParams($class, $method, $capturedParams));
 
     writeLine("if(\$countParts === $count)", $indentation + 1);
     writeLine('{', $indentation + 1);
-    /**
-     * @psalm-suppress InternalMethod
-     */
-    writeLine(
-        sprintf(
-            'return $this->container->get("%s")->%s(%s);',
-            $class,
-            $method,
-            /**
-             * @phpstan-ignore-next-line
-             */
-            implode(', ', $compiler->generateParams($class, $method, $capturedParams))
-        ),
-        $indentation + 2
-    );
+    if ($generateCall) {
+        writeLine("return \$this->container->get(\"$class\")->$method($params);", $indentation + 2);
+    } else {
+        writeLine("return \"$class::$method\";", $indentation + 2);
+    }
     writeLine('}', $indentation + 1);
 }
 
