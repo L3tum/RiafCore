@@ -31,10 +31,10 @@ if (isset($route['parameter'])) {
             $capturedParams[$parameter] = true;
         }
     } else { // Parameter without requirement
+        // We don't need to go down one step so reduce indentation of the rest of the generated code
+        --$indentation;
+        $needClosingBraces = false;
         if ($capture) {
-            // We don't need to go down one step so reduce indentation of the rest of the generated code
-            --$indentation;
-            $needClosingBraces = false;
             writeLine("\$capturedParams[\"$parameter\"] = \$uriParts[$index] ?? null;", $indentation + 1);
             $capturedParams[$parameter] = true;
         }

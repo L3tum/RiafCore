@@ -62,10 +62,10 @@ class Router implements MiddlewareInterface, RequestHandlerInterface
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
+        $method = $request->getMethod();
+        $path = $request->getUri()->getPath();
 <?php
     if (count($staticRoutes) > 0) {
-        writeLine('$method = $request->getMethod();', 2);
-        writeLine('$path = $request->getUri()->getPath();', 2);
         writeLine('return match ($method)', 2);
         writeLine('{', 2);
         foreach ($staticRoutes as $method => $routeCollection) {
