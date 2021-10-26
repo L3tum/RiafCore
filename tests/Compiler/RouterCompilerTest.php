@@ -280,6 +280,7 @@ class RouterCompilerTest extends TestCase
         $stream = $config->getFileHandle($compiler);
         fseek($stream, 0);
         $content = stream_get_contents($stream);
+//        file_put_contents(dirname(__DIR__) . '/dev_Router.php', $content);
         eval('?>' . $content);
     }
 }

@@ -2,7 +2,7 @@
 
 /** @var string $namespace */
 /** @var array<string, array<string, StaticRoute>> $staticRoutes */
-/** @var array<string, array<string, mixed>> $routingTree */
+/** @var array<string, array<int, array<string, mixed>>> $routingTree */
 /** @var RouterCompiler $compiler */
 
 use Riaf\Compiler\Router\StaticRoute;
@@ -11,19 +11,34 @@ use Riaf\Compiler\RouterCompiler;
 $newLine = PHP_EOL;
 
 if (!function_exists('includeLeaf')) {
-    function includeLeaf(string $uri, array $route, int $indentation, bool $firstRoute, array $capturedParams, RouterCompiler $compiler, bool $generateCall = true): void
-    {
+    function includeLeaf(
+        string $uri,
+        array $route,
+        int $indentation,
+        bool $firstRoute,
+        array $capturedParams,
+        RouterCompiler $compiler,
+        bool &$hasGeneratedRoute,
+        bool $generateCall = true,
+        bool $lastRoute = false
+    ): void {
         include __DIR__ . '/RouteLeaf.php';
+    }
+}
+
+if (!function_exists('write')) {
+    function write(string $line, ?int $indentation = null): void
+    {
+        $indentation = $indentation ?? 0;
+        $indents = implode('', array_fill(0, $indentation, "\t"));
+        echo "$indents$line";
     }
 }
 
 if (!function_exists('writeLine')) {
     function writeLine(string $line, ?int $indentation = null): void
     {
-        $indentation = $indentation ?? 0;
-        $newLine = PHP_EOL;
-        $indents = implode('', array_fill(0, $indentation, "\t"));
-        echo "$indents$line$newLine";
+        write($line . PHP_EOL, $indentation);
     }
 }
 
@@ -110,27 +125,34 @@ class Router implements MiddlewareInterface, RequestHandlerInterface
     {
         $uriParts = explode('/', $path);
         $countParts = count($uriParts);
-        /** @var array<string, string> $capturedParams */
-        $capturedParams = [];
 
+        return match($method)
+        {
 <?php
-        $firstOne = true;
-        foreach ($routingTree as $method => $routes) {
-            $check = ($firstOne ? 'if' : 'elseif');
-            writeLine("{$check}(\$method === \"$method\")", 2);
-            writeLine('{', 2);
+    foreach ($routingTree as $method => $counters) {
+        writeLine("\"$method\" => match(\$countParts)", 3);
+        writeLine('{', 3);
 
+        foreach ($counters as $count => $routes) {
+            write("$count => ", 4);
             $firstRoute = true;
+            $lastUri = array_key_last($routes);
+            $hasGeneratedSubRoute = false;
             foreach ($routes as $uri => $route) {
-                includeLeaf($uri, $route, 3, $firstRoute, [], $compiler, true);
+                $hasGeneratedSubRouteTemp = $hasGeneratedSubRoute;
+                includeLeaf($uri, $route, 4, $firstRoute, [], $compiler, $hasGeneratedSubRouteTemp, true, $lastUri === $uri);
                 $firstRoute = false;
+                if ($hasGeneratedSubRouteTemp) {
+                    $hasGeneratedSubRoute = true;
+                }
             }
-            writeLine('}', 2);
-
-            $firstOne = false;
         }
+        writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 4);
+        writeLine('},', 3);
+    }
 ?>
-        return $this->container->get(ResponseFactoryInterface::class)->createResponse(404);
+            default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)
+        };
     }
 
     public function matchRoute(string $method, string $path): ?string
@@ -177,23 +199,33 @@ class Router implements MiddlewareInterface, RequestHandlerInterface
         $uriParts = explode('/', $path);
         $countParts = count($uriParts);
 
+        return match($method)
+        {
 <?php
-    $firstOne = true;
-    foreach ($routingTree as $method => $routes) {
-        $check = ($firstOne ? 'if' : 'elseif');
-        writeLine("{$check}(\$method === \"$method\")", 2);
-        writeLine('{', 2);
+    foreach ($routingTree as $method => $counters) {
+        writeLine("\"$method\" => match(\$countParts)", 3);
+        writeLine('{', 3);
 
-        $firstRoute = true;
-        foreach ($routes as $uri => $route) {
-            includeLeaf($uri, $route, 3, $firstRoute, [], $compiler, false);
-            $firstRoute = false;
+        foreach ($counters as $count => $routes) {
+            write("$count => ", 4);
+            $firstRoute = true;
+            $lastUri = array_key_last($routes);
+            $hasGeneratedSubRoute = false;
+            foreach ($routes as $uri => $route) {
+                $hasGeneratedSubRouteTemp = $hasGeneratedSubRoute;
+                includeLeaf($uri, $route, 4, $firstRoute, [], $compiler, $hasGeneratedSubRouteTemp, false, $lastUri === $uri);
+                $firstRoute = false;
+
+                if ($hasGeneratedSubRouteTemp) {
+                    $hasGeneratedSubRoute = true;
+                }
+            }
         }
-        writeLine('}', 2);
-
-        $firstOne = false;
+        writeLine('default => null', 4);
+        writeLine('},', 3);
     }
 ?>
-        return null;
+            default => null
+        };
     }
 }

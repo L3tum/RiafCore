@@ -20,7 +20,7 @@ use Throwable;
 class RouterCompiler extends BaseCompiler
 {
     /**
-     * @var array<string, array<string, mixed>>
+     * @var array<string, array<int, array<string, mixed>>>
      */
     private array $routingTree = [];
 
@@ -146,21 +146,33 @@ class RouterCompiler extends BaseCompiler
             $this->routingTree[$route->getMethod()] = [];
         }
 
+        $routingParts = explode('/', $route->getRoute());
+        $lastRoute = array_key_last($routingParts);
+
+        if (!isset($this->routingTree[$route->getMethod()][count($routingParts)])) {
+            $this->routingTree[$route->getMethod()][count($routingParts)] = [];
+        }
+
         /**
          * @var array<string, mixed> $currentRouting
          */
-        $currentRouting = &$this->routingTree[$route->getMethod()];
-
-        $routingParts = explode('/', $route->getRoute());
-        $lastRoute = array_key_last($routingParts);
+        $currentRouting = &$this->routingTree[$route->getMethod()][count($routingParts)];
 
         foreach ($routingParts as $key => $part) {
             $parameter = null;
             $requirement = null;
+
             if (str_starts_with($part, '{')) {
+                $defaultKey = 'zzz_default_zzz';
                 $parameter = trim($part, '{}');
                 $requirement = $route->getRequirement($parameter);
                 $part = "\{$parameter=$requirement}";
+
+                if (!isset($currentRouting[$defaultKey])) {
+                    $currentRouting[$defaultKey] = [];
+                }
+
+                $currentRouting = &$currentRouting[$defaultKey];
             }
 
             if (!isset($currentRouting[$part])) {
@@ -217,8 +229,8 @@ class RouterCompiler extends BaseCompiler
     }
 
     /**
-     * @param array<string, array<string, StaticRoute>> $staticRoutes
-     * @param array<string, array<string, mixed>>       $routingTree
+     * @param array<string, array<string, StaticRoute>>       $staticRoutes
+     * @param array<string, array<int, array<string, mixed>>> $routingTree
      */
     private function generateRouter(array $staticRoutes, array $routingTree, string $namespace): void
     {
@@ -229,7 +241,7 @@ class RouterCompiler extends BaseCompiler
     }
 
     /**
-     * @param array<string, true> $capturedParams
+     * @param array<string, string> $capturedParams
      *
      * @return string[]
      *
@@ -248,12 +260,12 @@ class RouterCompiler extends BaseCompiler
                 // Exception is string, since the URI is already a string.
                 if ($parameter->getType() instanceof ReflectionNamedType && $parameter->getType()->getName() !== 'string') {
                     $type = $parameter->getType()->getName();
-                    $params[] = "$parameter->name: ($type)\$capturedParams[\"$parameter->name\"]";
+                    $params[] = "$parameter->name: ($type){$capturedParams[$parameter->name]}";
                 }
                 // Type is not named (therefore there may be no type-hint at all) or string,
                 // so we do not need to care about it.
                 else {
-                    $params[] = "$parameter->name: \$capturedParams[\"$parameter->name\"]";
+                    $params[] = "$parameter->name: {$capturedParams[$parameter->name]}";
                 }
                 continue;
             }
