@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "cb98c88e1a3b074a35f05e978de2d782",
+    "content-hash": "5c58ffc981d1bddad6cc0052d5f2c22f",
     "packages": [
         {
             "name": "nyholm/psr7-server",
@@ -399,30 +399,30 @@
         },
         {
             "name": "psr/log",
-            "version": "1.1.4",
+            "version": "3.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/php-fig/log.git",
-                "reference": "d49695b909c3b7628b6289db5479a1c204601f11"
+                "reference": "fe5ea303b0887d5caefd3d431c3e61ad47037001"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/php-fig/log/zipball/d49695b909c3b7628b6289db5479a1c204601f11",
-                "reference": "d49695b909c3b7628b6289db5479a1c204601f11",
+                "url": "https://api.github.com/repos/php-fig/log/zipball/fe5ea303b0887d5caefd3d431c3e61ad47037001",
+                "reference": "fe5ea303b0887d5caefd3d431c3e61ad47037001",
                 "shasum": ""
             },
             "require": {
-                "php": ">=5.3.0"
+                "php": ">=8.0.0"
             },
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-master": "1.1.x-dev"
+                    "dev-master": "3.x-dev"
                 }
             },
             "autoload": {
                 "psr-4": {
-                    "Psr\\Log\\": "Psr/Log/"
+                    "Psr\\Log\\": "src"
                 }
             },
             "notification-url": "https://packagist.org/downloads/",
@@ -443,9 +443,9 @@
                 "psr-3"
             ],
             "support": {
-                "source": "https://github.com/php-fig/log/tree/1.1.4"
+                "source": "https://github.com/php-fig/log/tree/3.0.0"
             },
-            "time": "2021-05-03T11:20:27+00:00"
+            "time": "2021-07-14T16:46:02+00:00"
         }
     ],
     "packages-dev": [
@@ -617,16 +617,16 @@
         },
         {
             "name": "composer/semver",
-            "version": "3.2.5",
+            "version": "3.2.6",
             "source": {
                 "type": "git",
                 "url": "https://github.com/composer/semver.git",
-                "reference": "31f3ea725711245195f62e54ffa402d8ef2fdba9"
+                "reference": "83e511e247de329283478496f7a1e114c9517506"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/composer/semver/zipball/31f3ea725711245195f62e54ffa402d8ef2fdba9",
-                "reference": "31f3ea725711245195f62e54ffa402d8ef2fdba9",
+                "url": "https://api.github.com/repos/composer/semver/zipball/83e511e247de329283478496f7a1e114c9517506",
+                "reference": "83e511e247de329283478496f7a1e114c9517506",
                 "shasum": ""
             },
             "require": {
@@ -678,7 +678,7 @@
             "support": {
                 "irc": "irc://irc.freenode.org/composer",
                 "issues": "https://github.com/composer/semver/issues",
-                "source": "https://github.com/composer/semver/tree/3.2.5"
+                "source": "https://github.com/composer/semver/tree/3.2.6"
             },
             "funding": [
                 {
@@ -694,7 +694,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2021-05-24T12:41:47+00:00"
+            "time": "2021-10-25T11:34:17+00:00"
         },
         {
             "name": "composer/xdebug-handler",
@@ -2307,23 +2307,23 @@
         },
         {
             "name": "phpunit/php-code-coverage",
-            "version": "9.2.7",
+            "version": "9.2.8",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/php-code-coverage.git",
-                "reference": "d4c798ed8d51506800b441f7a13ecb0f76f12218"
+                "reference": "cf04e88a2e3c56fc1a65488afd493325b4c1bc3e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/php-code-coverage/zipball/d4c798ed8d51506800b441f7a13ecb0f76f12218",
-                "reference": "d4c798ed8d51506800b441f7a13ecb0f76f12218",
+                "url": "https://api.github.com/repos/sebastianbergmann/php-code-coverage/zipball/cf04e88a2e3c56fc1a65488afd493325b4c1bc3e",
+                "reference": "cf04e88a2e3c56fc1a65488afd493325b4c1bc3e",
                 "shasum": ""
             },
             "require": {
                 "ext-dom": "*",
                 "ext-libxml": "*",
                 "ext-xmlwriter": "*",
-                "nikic/php-parser": "^4.12.0",
+                "nikic/php-parser": "^4.13.0",
                 "php": ">=7.3",
                 "phpunit/php-file-iterator": "^3.0.3",
                 "phpunit/php-text-template": "^2.0.2",
@@ -2372,7 +2372,7 @@
             ],
             "support": {
                 "issues": "https://github.com/sebastianbergmann/php-code-coverage/issues",
-                "source": "https://github.com/sebastianbergmann/php-code-coverage/tree/9.2.7"
+                "source": "https://github.com/sebastianbergmann/php-code-coverage/tree/9.2.8"
             },
             "funding": [
                 {
@@ -2380,7 +2380,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2021-09-17T05:39:03+00:00"
+            "time": "2021-10-30T08:01:38+00:00"
         },
         {
             "name": "phpunit/php-file-iterator",
@@ -4108,7 +4108,6 @@
                     "type": "github"
                 }
             ],
-            "abandoned": true,
             "time": "2020-09-28T06:45:17+00:00"
         },
         {
@@ -5055,16 +5054,16 @@
         },
         {
             "name": "vimeo/psalm",
-            "version": "4.10.0",
+            "version": "4.11.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/vimeo/psalm.git",
-                "reference": "916b098b008f6de4543892b1e0651c1c3b92cbfa"
+                "reference": "6fba5eb554f9507b72932f9c75533d8af593688d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vimeo/psalm/zipball/916b098b008f6de4543892b1e0651c1c3b92cbfa",
-                "reference": "916b098b008f6de4543892b1e0651c1c3b92cbfa",
+                "url": "https://api.github.com/repos/vimeo/psalm/zipball/6fba5eb554f9507b72932f9c75533d8af593688d",
+                "reference": "6fba5eb554f9507b72932f9c75533d8af593688d",
                 "shasum": ""
             },
             "require": {
@@ -5084,7 +5083,7 @@
                 "felixfbecker/advanced-json-rpc": "^3.0.3",
                 "felixfbecker/language-server-protocol": "^1.5",
                 "netresearch/jsonmapper": "^1.0 || ^2.0 || ^3.0 || ^4.0",
-                "nikic/php-parser": "^4.12",
+                "nikic/php-parser": "^4.13",
                 "openlss/lib-array2xml": "^1.0",
                 "php": "^7.1|^8",
                 "sebastian/diff": "^3.0 || ^4.0",
@@ -5154,9 +5153,9 @@
             ],
             "support": {
                 "issues": "https://github.com/vimeo/psalm/issues",
-                "source": "https://github.com/vimeo/psalm/tree/4.10.0"
+                "source": "https://github.com/vimeo/psalm/tree/4.11.2"
             },
-            "time": "2021-09-04T21:00:09+00:00"
+            "time": "2021-10-26T17:28:17+00:00"
         },
         {
             "name": "webmozart/assert",
