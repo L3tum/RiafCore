@@ -241,6 +241,27 @@ class RouterCompiler extends BaseCompiler
     }
 
     /**
+     * Adds the specified route to the routing table
+     *
+     * @param Route $route
+     * @param string $handler
+     * @return $this
+     */
+    public function addRoute(Route $route, string $handler): self
+    {
+        if (str_contains($handler, '::')) {
+            [$targetClass, $targetMethod] = explode('::', $handler, 2);
+        } else {
+            $targetClass = $handler;
+            $targetMethod = '';
+        }
+
+        $this->analyzeRoute($route, $targetClass, $targetMethod);
+
+        return $this;
+    }
+
+    /**
      * @param array<string, string> $capturedParams
      *
      * @return string[]

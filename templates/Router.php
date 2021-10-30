@@ -1,4 +1,8 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
+
+namespace Riaf\Compiler;
 
 /** @var string $namespace */
 /** @var array<string, array<string, StaticRoute>> $staticRoutes */
@@ -6,9 +10,6 @@
 /** @var RouterCompiler $compiler */
 
 use Riaf\Compiler\Router\StaticRoute;
-use Riaf\Compiler\RouterCompiler;
-
-$newLine = PHP_EOL;
 
 if (!function_exists('includeLeaf')) {
     function includeLeaf(

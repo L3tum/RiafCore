@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+namespace Riaf\Compiler;
+
 /** @var RouterCompiler $compiler */
 /** @var array<string, true> $capturedParams */
 /** @var bool $firstRoute */
@@ -12,8 +14,6 @@ declare(strict_types=1);
 /** @var bool $hasGeneratedRoute */
 
 /** @var array<string, mixed> $route */
-
-use Riaf\Compiler\RouterCompiler;
 
 $index = $route['index'];
 
@@ -31,7 +31,7 @@ if ($firstRoute) {
 
 // Parameter
 if (isset($route['parameter'])) {
-    $parameter = (string) $route['parameter'];
+    $parameter = (string)$route['parameter'];
     $pattern = $route['pattern'] ?? null;
     $capture = $route['capture'];
 
@@ -60,7 +60,11 @@ if (isset($route['call'])) {
     $params = implode(', ', $compiler->generateParams($class, $method, $capturedParams));
 
     if ($generateCall) {
-        writeLine("\$this->container->get(\"$class\")->$method($params),");
+        if ($method !== '') {
+            writeLine("\$this->container->get(\"$class\")->$method($params),");
+        } else {
+            writeLine("\$this->container->get(ResponseFactoryInterface::class)->createResponse(404),");
+        }
     } else {
         writeLine("\"$class::$method\",");
     }

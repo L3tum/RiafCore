@@ -267,13 +267,14 @@ class RouterCompilerTest extends TestCase
                 return new Response(body: $id . $anotherId);
             }
         };
-        $analyzer->expects(self::once())->method('getUsedClasses')->with($config->getProjectRoot())->willReturn(new ArrayIterator([new ReflectionClass($mockingClass)]));
-
-        $compiler = new RouterCompiler($analyzer, new Timing(new SystemClock()), $config);
 
         self::$mockingClass = $mockingClass;
         self::$requestHandler = $this->createMock(RequestHandlerInterface::class);
 
+        $analyzer->expects(self::once())->method('getUsedClasses')->with($config->getProjectRoot())->willReturn(new ArrayIterator([new ReflectionClass($mockingClass)]));
+
+        $compiler = new RouterCompiler($analyzer, new Timing(new SystemClock()), $config);
+        $compiler->addRoute(new Route('/manually/added/route'), 'manually::added');
         $compiler->supportsCompilation();
         $compiler->compile();
 
