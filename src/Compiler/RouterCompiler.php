@@ -9,6 +9,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionParameter;
+use Riaf\Compiler\Emitter\RouterEmitter;
 use Riaf\Compiler\Router\StaticRoute;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\RouterCompilerConfiguration;
@@ -48,7 +49,7 @@ class RouterCompiler extends BaseCompiler
 
         /** @var RouterCompilerConfiguration $config */
         $config = $this->config;
-        $this->openResultFile($config->getRouterFilepath());
+        $emitter = new RouterEmitter($this->config, $this);
         $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
 
         foreach ($classes as $class) {
@@ -75,7 +76,7 @@ class RouterCompiler extends BaseCompiler
             }
         }
 
-        $this->generateRouter($this->staticRoutes, $this->routingTree, $config->getRouterNamespace());
+        $emitter->emitRouter($this->staticRoutes, $this->routingTree);
 
         $this->timing->stop(self::class);
 
@@ -229,7 +230,7 @@ class RouterCompiler extends BaseCompiler
     }
 
     /**
-     * @param array<string, array<string, StaticRoute>>       $staticRoutes
+     * @param array<string, array<string, StaticRoute>> $staticRoutes
      * @param array<string, array<int, array<string, mixed>>> $routingTree
      */
     private function generateRouter(array $staticRoutes, array $routingTree, string $namespace): void
