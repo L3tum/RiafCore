@@ -76,6 +76,9 @@ class RouterCompiler extends BaseCompiler
             }
         }
 
+        // TODO: Run optimizations
+        // TODO: For every GET route, add an equivalent HEAD route (if not exists)
+
         $emitter->emitRouter($this->staticRoutes, $this->routingTree);
 
         $this->timing->stop(self::class);
