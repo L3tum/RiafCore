@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Riaf\Compiler\Emitter;
 
 use Exception;
@@ -18,8 +20,9 @@ class RouterEmitter extends BaseEmitter
     }
 
     /**
-     * @param array<string, array<string, StaticRoute>> $staticRoutes
+     * @param array<string, array<string, StaticRoute>>       $staticRoutes
      * @param array<string, array<int, array<string, mixed>>> $routingTree
+     *
      * @throws Exception
      */
     public function emitRouter(array $staticRoutes, array $routingTree): void
@@ -29,7 +32,16 @@ class RouterEmitter extends BaseEmitter
         $this->openResultFile($config->getRouterFilepath());
 
         $this->emitHeader($config->getRouterNamespace());
-        $this->emitStaticHandler($staticRoutes, count($routingTree) > 0);
+
+        $hasDynamicRoutes = count($routingTree) > 0;
+        $this->emitStaticHandler($staticRoutes, $hasDynamicRoutes);
+        $this->emitStaticMatcher($staticRoutes, $hasDynamicRoutes);
+
+        if ($hasDynamicRoutes) {
+            $this->emitDynamicHandler($routingTree);
+            $this->emitDynamicMatcher($routingTree);
+        }
+
         $this->emitEnding();
     }
 
@@ -89,19 +101,16 @@ HEADER
                 foreach ($routeCollection as $route => $staticRoute) {
                     $targetClass = $staticRoute->getTargetClass();
                     $targetMethod = $staticRoute->getTargetMethod();
-
-                    if ($targetMethod !== '') {
-                        $params = implode(', ', $this->compiler->generateParams($targetClass, $targetMethod));
-                        $this->writeLine(
-                            "\"$route\" => \$this->container->get(\"{$targetClass}\")->{$targetMethod}({$params}),",
-                            4
-                        );
-                    } else {
-                        $this->writeLine(
-                            "\"$route\" => \$this->container->get(ResponseFactoryInterface::class)->createResponse(404),",
-                            4
-                        );
-                    }
+                    /**
+                     * @noinspection PhpPossiblePolymorphicInvocationInspection
+                     * @psalm-suppress UndefinedMethod
+                     * @phpstan-ignore-next-line
+                     */
+                    $params = implode(', ', $this->compiler->generateParams($targetClass, $targetMethod));
+                    $this->writeLine(
+                        "\"$route\" => \$this->container->get(\"{$targetClass}\")->{$targetMethod}({$params}),",
+                        4
+                    );
                 }
 
                 if ($hasDynamicRoutes) {
@@ -120,6 +129,295 @@ HEADER
             $this->writeLine('};', 2);
         }
 
+        $this->writeLine('}', 1);
+    }
+
+    /**
+     * @param array<string, array<string, StaticRoute>> $staticRoutes
+     */
+    private function emitStaticMatcher(array $staticRoutes, bool $hasDynamicRoutes): void
+    {
+        $this->writeLine('public function match(string $method, string $path): ?string', 1);
+        $this->writeLine('{', 1);
+
+        if (count($staticRoutes) === 0) {
+            if ($hasDynamicRoutes) {
+                $this->writeLine('return $this->matchDynamicRoute($method, $path);', 2);
+            } else {
+                $this->writeLine('return null;', 2);
+            }
+        } else {
+            $this->writeLine('return match($method)', 2);
+            $this->writeLine('{', 2);
+
+            foreach ($staticRoutes as $method => $routeCollection) {
+                $this->writeLine("\"$method\" => match(\$path) {", 3);
+
+                foreach ($routeCollection as $route => $staticRoute) {
+                    $targetClass = $staticRoute->getTargetClass();
+                    $targetMethod = $staticRoute->getTargetMethod();
+                    $this->writeLine(
+                        "\"$route\" => \"{$targetClass}::{$targetMethod}\",",
+                        4
+                    );
+                }
+
+                if ($hasDynamicRoutes) {
+                    $this->writeLine('default => $this->matchDynamicRoute($method, $path)', 4);
+                } else {
+                    $this->writeLine('default => null', 4);
+                }
+                $this->writeLine('},', 3);
+            }
+
+            if ($hasDynamicRoutes) {
+                $this->writeLine('default => $this->matchDynamicRoute($method, $path)', 3);
+            } else {
+                $this->writeLine('default => null', 3);
+            }
+            $this->writeLine('};', 2);
+        }
+
+        $this->writeLine('}', 1);
+    }
+
+    /**
+     * @param array<string, array<int, array<string, mixed>>> $routingTree
+     */
+    private function emitDynamicHandler(array $routingTree): void
+    {
+        $this->writeLine('private function handleDynamicRoute(string $method, string $path, ServerRequestInterface $request): ResponseInterface', 1);
+        $this->writeLine('{', 1);
+        $this->writeLine('$uriParts = explode("/", $path);', 2);
+        $this->writeLine('$countParts = count($uriParts);', 2);
+        $this->writeLine('return match($method)', 2);
+        $this->writeLine('{', 2);
+
+        foreach ($routingTree as $method => $counters) {
+            $this->writeLine("\"$method\" => match(\$countParts)", 3);
+            $this->writeLine('{', 3);
+
+            foreach ($counters as $count => $routes) {
+                $this->write("$count => ", 4);
+
+                $lastUri = array_key_last($routes);
+                $firstUri = array_key_first($routes);
+                $hasGeneratedSubRoute = false;
+                foreach ($routes as $uri => $route) {
+                    $hasGeneratedSubRouteTemp = $hasGeneratedSubRoute;
+                    $this->walkRoutingTree(
+                        $uri,
+                        $route,
+                        4,
+                        $firstUri === $uri,
+                        $lastUri === $uri,
+                        [],
+                        $hasGeneratedSubRouteTemp,
+                        true
+                    );
+                    if ($hasGeneratedSubRouteTemp) {
+                        $hasGeneratedSubRoute = true;
+                    }
+                }
+            }
+
+            $this->writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 4);
+            $this->writeLine('},', 3);
+        }
+
+        $this->writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 3);
+        $this->writeLine('};', 2);
+        $this->writeLine('}', 1);
+    }
+
+    /**
+     * @param array<string, mixed>  $route
+     * @param array<string, string> $capturedParams
+     */
+    private function walkRoutingTree(
+        string $uri,
+        array $route,
+        int $indentation,
+        bool $firstRoute,
+        bool $lastRoute,
+        array $capturedParams,
+        bool &$hasGeneratedRoute,
+        bool $generateCall
+    ): void {
+        $index = $route['index'];
+
+        if ($firstRoute) {
+            if (!isset($route['pattern']) && !isset($route['parameter'])) {
+                $this->writeLine("match(\$uriParts[$index])");
+                $this->writeLine('{', $indentation);
+                ++$indentation;
+            } elseif (isset($route['pattern'])) {
+                $this->writeLine('match(true)');
+                $this->writeLine('{', $indentation);
+                ++$indentation;
+            }
+        }
+
+        // Parameter
+        if (isset($route['parameter'])) {
+            $parameter = (string) $route['parameter'];
+            $pattern = $route['pattern'] ?? null;
+            $capture = $route['capture'];
+
+            if ($pattern !== null) { // Parameter with Requirement
+                $this->write("preg_match(\"/^$pattern$/\", \$uriParts[$index], \$matches$index) === 1 => ", $indentation);
+                if ($capture) {
+                    $capturedParams[$parameter] = "\$matches{$index}[0]";
+                }
+                $hasGeneratedRoute = true;
+            } elseif ($capture) { // Parameter without requirement
+                $capturedParams[$parameter] = "\$uriParts[$index]";
+            }
+        } // Normal route
+        else {
+            $this->write("\"$uri\" => ", $indentation);
+            $hasGeneratedRoute = true;
+        }
+
+        if (isset($route['call'])) {
+            $class = $route['call']['class'];
+            $method = $route['call']['method'];
+            /**
+             * @noinspection PhpPossiblePolymorphicInvocationInspection
+             * @psalm-suppress UndefinedMethod
+             * @phpstan-ignore-next-line
+             */
+            $params = implode(', ', $this->compiler->generateParams($class, $method, $capturedParams));
+
+            if ($generateCall) {
+                $this->writeLine("\$this->container->get(\"$class\")->$method($params),");
+            } else {
+                $this->writeLine("\"$class::$method\",");
+            }
+        }
+
+        $needsDefaultArm = $lastRoute;
+
+        if (isset($route['next'])) {
+            $generatedLeaves = 0;
+            $regexes = [];
+            $firstUri = array_key_first($route['next']);
+            $lastUri = array_key_last($route['next']);
+            $hasGeneratedSubRoute = false;
+            foreach ($route['next'] as $newUri => $newRoute) {
+                $hasGeneratedSubRouteTemp = $hasGeneratedSubRoute;
+                if ($newUri === 'zzz_default_zzz') {
+                    $regexes = $newRoute;
+                    continue;
+                }
+                $this->walkRoutingTree(
+                    $newUri,
+                    $newRoute,
+                    $indentation + 1,
+                    $firstUri === $newUri,
+                    $lastUri === $newUri,
+                    $capturedParams,
+                    $hasGeneratedSubRouteTemp,
+                    $generateCall
+                );
+                ++$generatedLeaves;
+
+                if ($hasGeneratedSubRouteTemp) {
+                    $hasGeneratedSubRoute = true;
+                }
+            }
+
+            if (count($regexes) > 0) {
+                if ($generatedLeaves > 0) {
+                    $this->write('default => ');
+                    $needsDefaultArm = false;
+                }
+
+                $firstUri = array_key_first($regexes);
+                $lastUri = array_key_last($regexes);
+                $hasGeneratedSubRoute = false;
+                foreach ($regexes as $newUri => $newRoute) {
+                    $hasGeneratedSubRouteTemp = $hasGeneratedSubRoute;
+                    $this->walkRoutingTree(
+                        $newUri,
+                        $newRoute,
+                        $indentation + 1,
+                        $firstUri === $newUri,
+                        $lastUri === $newUri,
+                        $capturedParams,
+                        $hasGeneratedSubRouteTemp,
+                        $generateCall
+                    );
+
+                    if ($hasGeneratedSubRouteTemp) {
+                        $hasGeneratedSubRoute = true;
+                    }
+                }
+            } elseif ($generatedLeaves === 0) {
+                $needsDefaultArm = false;
+            }
+        }
+
+        if ($needsDefaultArm && $hasGeneratedRoute) {
+            if ($generateCall) {
+                $this->writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404),', $indentation);
+            } else {
+                $this->writeLine('default => null,', $indentation);
+            }
+        }
+
+        if ($lastRoute && $hasGeneratedRoute) {
+            --$indentation;
+            $this->writeLine('},', $indentation);
+        }
+    }
+
+    /**
+     * @param array<string, array<int, array<string, mixed>>> $routingTree
+     */
+    private function emitDynamicMatcher(array $routingTree): void
+    {
+        $this->writeLine('private function matchDynamicRoute(string $method, string $path): ?string', 1);
+        $this->writeLine('{', 1);
+        $this->writeLine('$uriParts = explode("/", $path);', 2);
+        $this->writeLine('$countParts = count($uriParts);', 2);
+        $this->writeLine('return match($method)', 2);
+        $this->writeLine('{', 2);
+
+        foreach ($routingTree as $method => $counters) {
+            $this->writeLine("\"$method\" => match(\$countParts)", 3);
+            $this->writeLine('{', 3);
+
+            foreach ($counters as $count => $routes) {
+                $this->write("$count => ", 4);
+
+                $lastUri = array_key_last($routes);
+                $firstUri = array_key_first($routes);
+                $hasGeneratedSubRoute = false;
+                foreach ($routes as $uri => $route) {
+                    $hasGeneratedSubRouteTemp = $hasGeneratedSubRoute;
+                    $this->walkRoutingTree(
+                        $uri,
+                        $route,
+                        4,
+                        $firstUri === $uri,
+                        $lastUri === $uri,
+                        [],
+                        $hasGeneratedSubRouteTemp,
+                        false
+                    );
+                    if ($hasGeneratedSubRouteTemp) {
+                        $hasGeneratedSubRoute = true;
+                    }
+                }
+            }
+
+            $this->writeLine('default => null', 4);
+            $this->writeLine('},', 3);
+        }
+
+        $this->writeLine('default => null', 3);
+        $this->writeLine('};', 2);
         $this->writeLine('}', 1);
     }
 

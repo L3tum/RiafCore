@@ -5,15 +5,19 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use Exception;
+use JetBrains\PhpStorm\Pure;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionParameter;
+use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Compiler\Emitter\RouterEmitter;
 use Riaf\Compiler\Router\StaticRoute;
+use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\RouterCompilerConfiguration;
 use Riaf\Configuration\ServiceDefinition;
+use Riaf\Metrics\Timing;
 use Riaf\Routing\Route;
 use RuntimeException;
 use Throwable;
@@ -35,6 +39,20 @@ class RouterCompiler extends BaseCompiler
      */
     private array $recordedClasses = [];
 
+    /**
+     * @var array<string, array<string, Route|string>|false>
+     */
+    private array $routesNeedingHeadEquivalents = [];
+
+    private RouterEmitter $emitter;
+
+    #[Pure]
+    public function __construct(AnalyzerInterface $analyzer, Timing $timing, BaseConfiguration $config)
+    {
+        parent::__construct($analyzer, $timing, $config);
+        $this->emitter = new RouterEmitter($config, $this);
+    }
+
     public function supportsCompilation(): bool
     {
         return $this->config instanceof RouterCompilerConfiguration;
@@ -47,9 +65,6 @@ class RouterCompiler extends BaseCompiler
     {
         $this->timing->start(self::class);
 
-        /** @var RouterCompilerConfiguration $config */
-        $config = $this->config;
-        $emitter = new RouterEmitter($this->config, $this);
         $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
 
         foreach ($classes as $class) {
@@ -77,9 +92,9 @@ class RouterCompiler extends BaseCompiler
         }
 
         // TODO: Run optimizations
-        // TODO: For every GET route, add an equivalent HEAD route (if not exists)
+        $this->generateRfc2616();
 
-        $emitter->emitRouter($this->staticRoutes, $this->routingTree);
+        $this->emitter->emitRouter($this->staticRoutes, $this->routingTree);
 
         $this->timing->stop(self::class);
 
@@ -134,33 +149,48 @@ class RouterCompiler extends BaseCompiler
      */
     private function analyzeRoute(Route $route, string $targetClass, string $targetMethod): void
     {
-        if (!str_contains($route->getRoute(), '{')) {
-            if (!isset($this->staticRoutes[$route->getMethod()])) {
-                $this->staticRoutes[$route->getMethod()] = [];
+        $uri = $route->getRoute();
+        $method = $route->getMethod();
+
+        if ($method === 'GET') {
+            if (!isset($this->routesNeedingHeadEquivalents[$uri])) {
+                $this->routesNeedingHeadEquivalents[$uri] = [
+                    'route' => new Route($uri, 'HEAD', $route->getRequirements()),
+                    'class' => $targetClass,
+                    'method' => $targetMethod,
+                ];
             }
-            if (isset($this->staticRoutes[$route->getMethod()][$route->getRoute()])) {
-                throw new RuntimeException('Duplicated Route ' . $route->getRoute());
+        } elseif ($method === 'HEAD') {
+            $this->routesNeedingHeadEquivalents[$uri] = false;
+        }
+
+        if (!str_contains($uri, '{')) {
+            if (!isset($this->staticRoutes[$method])) {
+                $this->staticRoutes[$method] = [];
             }
-            $this->staticRoutes[$route->getMethod()][$route->getRoute()] = new StaticRoute($route->getRoute(), $route->getMethod(), $targetClass, $targetMethod);
+            if (isset($this->staticRoutes[$method][$uri])) {
+                throw new RuntimeException('Duplicated Route ' . $uri);
+            }
+            $this->staticRoutes[$method][$uri] = new StaticRoute($uri, $method, $targetClass, $targetMethod);
 
             return;
         }
 
-        if (!isset($this->routingTree[$route->getMethod()])) {
-            $this->routingTree[$route->getMethod()] = [];
+        if (!isset($this->routingTree[$method])) {
+            $this->routingTree[$method] = [];
         }
 
-        $routingParts = explode('/', $route->getRoute());
+        $routingParts = explode('/', $uri);
         $lastRoute = array_key_last($routingParts);
 
-        if (!isset($this->routingTree[$route->getMethod()][count($routingParts)])) {
-            $this->routingTree[$route->getMethod()][count($routingParts)] = [];
+        if (!isset($this->routingTree[$method][count($routingParts)])) {
+            $this->routingTree[$method][count($routingParts)] = [];
         }
 
         /**
          * @var array<string, mixed> $currentRouting
          */
-        $currentRouting = &$this->routingTree[$route->getMethod()][count($routingParts)];
+        $currentRouting = &$this->routingTree[$method][count($routingParts)];
 
         foreach ($routingParts as $key => $part) {
             $parameter = null;
@@ -201,7 +231,7 @@ class RouterCompiler extends BaseCompiler
 
             if ($key === $lastRoute) {
                 if (isset($currentRouting[$part]['call'])) {
-                    throw new RuntimeException('Duplicated route ' . $route->getRoute());
+                    throw new RuntimeException('Duplicated route ' . $uri);
                 }
 
                 $currentRouting[$part]['call'] = ['class' => $targetClass, 'method' => $targetMethod];
@@ -233,22 +263,25 @@ class RouterCompiler extends BaseCompiler
     }
 
     /**
-     * @param array<string, array<string, StaticRoute>> $staticRoutes
-     * @param array<string, array<int, array<string, mixed>>> $routingTree
+     * http://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html#sec5.1.1
+     * Every HEAD needs a GET.
      */
-    private function generateRouter(array $staticRoutes, array $routingTree, string $namespace): void
+    private function generateRfc2616(): void
     {
-        $compiler = $this;
-        ob_start();
-        require dirname(__DIR__, 2) . '/templates/Router.php';
-        $this->writeLine(ob_get_clean() ?: '');
+        foreach ($this->routesNeedingHeadEquivalents as $values) {
+            if ($values !== false) {
+                /**
+                 * @psalm-suppress PossiblyInvalidArgument
+                 * @phpstan-ignore-next-line
+                 */
+                $this->analyzeRoute($values['route'], $values['class'], $values['method']);
+            }
+        }
     }
 
     /**
-     * Adds the specified route to the routing table
+     * Adds the specified route to the routing table.
      *
-     * @param Route $route
-     * @param string $handler
      * @return $this
      */
     public function addRoute(Route $route, string $handler): self
@@ -257,7 +290,7 @@ class RouterCompiler extends BaseCompiler
             [$targetClass, $targetMethod] = explode('::', $handler, 2);
         } else {
             $targetClass = $handler;
-            $targetMethod = '';
+            $targetMethod = $handler;
         }
 
         $this->analyzeRoute($route, $targetClass, $targetMethod);

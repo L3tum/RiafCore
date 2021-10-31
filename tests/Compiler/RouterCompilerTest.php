@@ -197,6 +197,24 @@ class RouterCompilerTest extends TestCase
         self::assertEquals(404, $response->getStatusCode());
     }
 
+    public function testMatchesCorrectManuallyAddedRoute(): void
+    {
+        $container = $this->createMock(ContainerInterface::class);
+        $router = $this->getRouter($container);
+        $match = $router->match('GET', '/manually/added/route');
+
+        self::assertEquals('manually::added', $match);
+    }
+
+    public function testMatchesCorrectManuallyAddedRouteWithHead(): void
+    {
+        $container = $this->createMock(ContainerInterface::class);
+        $router = $this->getRouter($container);
+        $match = $router->match('HEAD', '/manually/added/route');
+
+        self::assertEquals('manually::added', $match);
+    }
+
     public function setUp(): void
     {
         // Why? Well, setUpBeforeClasses is not counted for coverage..

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Riaf\Compiler\Emitter;
 
 use Exception;
@@ -29,17 +31,21 @@ class BaseEmitter
         }
     }
 
-    protected function writeLine(string $line = '', int $indentation = 0): void
+    protected function write(string $line = '', int $indentation = 0): void
     {
         if ($this->handle === null) {
             // TODO: Exception
             throw new RuntimeException();
         }
 
-        $indentation = min($indentation, 10);
         /** @phpstan-ignore-next-line */
         $indents = implode(array_fill(0, $indentation, "\t"));
-        fwrite($this->handle, "$indents$line{$this->lineBreak}");
+        fwrite($this->handle, "$indents$line");
+    }
+
+    protected function writeLine(string $line = '', int $indentation = 0): void
+    {
+        $this->write("$line{$this->lineBreak}", $indentation);
     }
 
     /**
