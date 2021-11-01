@@ -8,6 +8,7 @@ use Exception;
 use JetBrains\PhpStorm\Pure;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
+use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionParameter;
 use Riaf\Compiler\Analyzer\AnalyzerInterface;
@@ -89,7 +90,6 @@ class RouterCompiler extends BaseCompiler
         }
 
         // TODO: Run optimizations
-        // TODO: For example moving simple regexes into match-trees
         $this->emitter->emitRouter($this->staticRoutes, $this->routingTree);
 
         $this->timing->stop(self::class);
@@ -118,7 +118,9 @@ class RouterCompiler extends BaseCompiler
             $instance = $attribute->newInstance();
         }
 
-        foreach ($class->getMethods() as $method) {
+        $methods = $class->getMethods(ReflectionMethod::IS_PUBLIC);
+
+        foreach ($methods as $method) {
             $attributes = $method->getAttributes(Route::class);
 
             foreach ($attributes as $attribute) {
