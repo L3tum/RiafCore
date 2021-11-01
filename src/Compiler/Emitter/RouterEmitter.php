@@ -33,13 +33,12 @@ class RouterEmitter extends BaseEmitter
 
         $this->emitHeader($config->getRouterNamespace());
 
-        $hasDynamicRoutes = count($routingTree) > 0;
-        $this->emitStaticHandler($staticRoutes, $hasDynamicRoutes);
-        $this->emitStaticMatcher($staticRoutes, $hasDynamicRoutes);
+        $this->emitStaticHandler($staticRoutes, $routingTree);
+        $this->emitStaticMatcher($staticRoutes, $routingTree);
 
-        if ($hasDynamicRoutes) {
-            $this->emitDynamicHandler($routingTree);
-            $this->emitDynamicMatcher($routingTree);
+        if (count($routingTree) > 1 || count($routingTree['HEAD']) > 0) {
+            $this->emitDynamicHandler($routingTree, $staticRoutes);
+            $this->emitDynamicMatcher($routingTree, $staticRoutes);
         }
 
         $this->emitEnding();
@@ -76,21 +75,24 @@ HEADER
     }
 
     /**
-     * @param array<string, array<string, StaticRoute>> $staticRoutes
+     * @param array<string, array<string, StaticRoute>>       $staticRoutes
+     * @param array<string, array<int, array<string, mixed>>> $routingTree
      */
-    private function emitStaticHandler(array $staticRoutes, bool $hasDynamicRoutes): void
+    private function emitStaticHandler(array $staticRoutes, array $routingTree): void
     {
         $this->writeLine('public function handle(ServerRequestInterface $request): ResponseInterface', 1);
         $this->writeLine('{', 1);
         $this->writeLine('$method = $request->getMethod();', 2);
         $this->writeLine('$path = $request->getUri()->getPath();', 2);
 
+        if (count($routingTree) > 0) {
+            $default = '$this->handleDynamicRoute($method, $path, $request)';
+        } else {
+            $default = '$this->container->get(ResponseFactoryInterface::class)->createResponse(404)';
+        }
+
         if (count($staticRoutes) === 0) {
-            if ($hasDynamicRoutes) {
-                $this->writeLine('return $this->handleDynamicRoute($method, $path, $request);', 2);
-            } else {
-                $this->writeLine('return $this->container->get(ResponseFactoryInterface::class)->createResponse(404);', 2);
-            }
+            $this->writeLine("return $default;", 2);
         } else {
             $this->writeLine('return match($method)', 2);
             $this->writeLine('{', 2);
@@ -113,7 +115,14 @@ HEADER
                     );
                 }
 
-                if ($hasDynamicRoutes) {
+                if (
+                    $method === 'HEAD'
+                    && !$this->hasRoutesWithMethod($routingTree, 'HEAD')
+                    && $this->hasRoutesWithMethod($staticRoutes, 'GET')
+                ) {
+                    // Re-run the match with GET
+                    $this->writeLine('default => $this->handle($request->withMethod("GET"))', 4);
+                } elseif ($this->hasRoutesWithMethod($routingTree, $method)) {
                     $this->writeLine('default => $this->handleDynamicRoute($method, $path, $request)', 4);
                 } else {
                     $this->writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 4);
@@ -121,11 +130,7 @@ HEADER
                 $this->writeLine('},', 3);
             }
 
-            if ($hasDynamicRoutes) {
-                $this->writeLine('default => $this->handleDynamicRoute($method, $path, $request)', 3);
-            } else {
-                $this->writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 3);
-            }
+            $this->writeLine("default => $default", 3);
             $this->writeLine('};', 2);
         }
 
@@ -133,19 +138,31 @@ HEADER
     }
 
     /**
-     * @param array<string, array<string, StaticRoute>> $staticRoutes
+     * @param array<string, array<mixed>> $tree
+     * @noinspection PhpPluralMixedCanBeReplacedWithArrayInspection
      */
-    private function emitStaticMatcher(array $staticRoutes, bool $hasDynamicRoutes): void
+    private function hasRoutesWithMethod(array $tree, string $method): bool
+    {
+        return isset($tree[$method]) && count($tree[$method]) > 0;
+    }
+
+    /**
+     * @param array<string, array<string, StaticRoute>>       $staticRoutes
+     * @param array<string, array<int, array<string, mixed>>> $routingTree
+     */
+    private function emitStaticMatcher(array $staticRoutes, array $routingTree): void
     {
         $this->writeLine('public function match(string $method, string $path): ?string', 1);
         $this->writeLine('{', 1);
 
+        if (count($routingTree) > 0) {
+            $default = '$this->matchDynamicRoute($method, $path)';
+        } else {
+            $default = 'null';
+        }
+
         if (count($staticRoutes) === 0) {
-            if ($hasDynamicRoutes) {
-                $this->writeLine('return $this->matchDynamicRoute($method, $path);', 2);
-            } else {
-                $this->writeLine('return null;', 2);
-            }
+            $this->writeLine("return $default;");
         } else {
             $this->writeLine('return match($method)', 2);
             $this->writeLine('{', 2);
@@ -162,7 +179,14 @@ HEADER
                     );
                 }
 
-                if ($hasDynamicRoutes) {
+                if (
+                    $method === 'HEAD'
+                    && !$this->hasRoutesWithMethod($routingTree, 'HEAD')
+                    && $this->hasRoutesWithMethod($staticRoutes, 'GET')
+                ) {
+                    // Re-run the match with GET
+                    $this->writeLine('default => $this->match("GET", $path)', 4);
+                } elseif ($this->hasRoutesWithMethod($routingTree, $method)) {
                     $this->writeLine('default => $this->matchDynamicRoute($method, $path)', 4);
                 } else {
                     $this->writeLine('default => null', 4);
@@ -170,11 +194,7 @@ HEADER
                 $this->writeLine('},', 3);
             }
 
-            if ($hasDynamicRoutes) {
-                $this->writeLine('default => $this->matchDynamicRoute($method, $path)', 3);
-            } else {
-                $this->writeLine('default => null', 3);
-            }
+            $this->writeLine("default => $default", 3);
             $this->writeLine('};', 2);
         }
 
@@ -183,8 +203,9 @@ HEADER
 
     /**
      * @param array<string, array<int, array<string, mixed>>> $routingTree
+     * @param array<string, array<string, StaticRoute>>       $staticRoutes
      */
-    private function emitDynamicHandler(array $routingTree): void
+    private function emitDynamicHandler(array $routingTree, array $staticRoutes): void
     {
         $this->writeLine('private function handleDynamicRoute(string $method, string $path, ServerRequestInterface $request): ResponseInterface', 1);
         $this->writeLine('{', 1);
@@ -221,7 +242,17 @@ HEADER
                 }
             }
 
-            $this->writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 4);
+            if ($method === 'HEAD') {
+                if ($this->hasRoutesWithMethod($staticRoutes, 'GET')) {
+                    $this->writeLine('default => $this->handle($request->withMethod("GET"))', 4);
+                } elseif ($this->hasRoutesWithMethod($routingTree, 'GET')) {
+                    $this->writeLine('default => $this->handleDynamicRoute("GET", $path, $request->withMethod("GET"))', 4);
+                } else {
+                    $this->writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 4);
+                }
+            } else {
+                $this->writeLine('default => $this->container->get(ResponseFactoryInterface::class)->createResponse(404)', 4);
+            }
             $this->writeLine('},', 3);
         }
 
@@ -374,8 +405,9 @@ HEADER
 
     /**
      * @param array<string, array<int, array<string, mixed>>> $routingTree
+     * @param array<string, array<string, StaticRoute>>       $staticRoutes
      */
-    private function emitDynamicMatcher(array $routingTree): void
+    private function emitDynamicMatcher(array $routingTree, array $staticRoutes): void
     {
         $this->writeLine('private function matchDynamicRoute(string $method, string $path): ?string', 1);
         $this->writeLine('{', 1);
@@ -412,7 +444,17 @@ HEADER
                 }
             }
 
-            $this->writeLine('default => null', 4);
+            if ($method === 'HEAD') {
+                if ($this->hasRoutesWithMethod($staticRoutes, 'GET')) {
+                    $this->writeLine('default => $this->match("GET", $path)', 4);
+                } elseif ($this->hasRoutesWithMethod($routingTree, 'GET')) {
+                    $this->writeLine('default => $this->matchDynamicRoute("GET", $path)', 4);
+                } else {
+                    $this->writeLine('default => null', 4);
+                }
+            } else {
+                $this->writeLine('default => null', 4);
+            }
             $this->writeLine('},', 3);
         }
 

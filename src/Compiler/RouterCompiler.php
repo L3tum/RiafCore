@@ -39,11 +39,6 @@ class RouterCompiler extends BaseCompiler
      */
     private array $recordedClasses = [];
 
-    /**
-     * @var array<string, array<string, Route|string>|false>
-     */
-    private array $routesNeedingHeadEquivalents = [];
-
     private RouterEmitter $emitter;
 
     #[Pure]
@@ -64,6 +59,8 @@ class RouterCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
+        $this->staticRoutes['HEAD'] = [];
+        $this->routingTree['HEAD'] = [];
 
         $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
 
@@ -92,8 +89,7 @@ class RouterCompiler extends BaseCompiler
         }
 
         // TODO: Run optimizations
-        $this->generateRfc2616();
-
+        // TODO: For example moving simple regexes into match-trees
         $this->emitter->emitRouter($this->staticRoutes, $this->routingTree);
 
         $this->timing->stop(self::class);
@@ -151,18 +147,6 @@ class RouterCompiler extends BaseCompiler
     {
         $uri = $route->getRoute();
         $method = $route->getMethod();
-
-        if ($method === 'GET') {
-            if (!isset($this->routesNeedingHeadEquivalents[$uri])) {
-                $this->routesNeedingHeadEquivalents[$uri] = [
-                    'route' => new Route($uri, 'HEAD', $route->getRequirements()),
-                    'class' => $targetClass,
-                    'method' => $targetMethod,
-                ];
-            }
-        } elseif ($method === 'HEAD') {
-            $this->routesNeedingHeadEquivalents[$uri] = false;
-        }
 
         if (!str_contains($uri, '{')) {
             if (!isset($this->staticRoutes[$method])) {
@@ -260,23 +244,6 @@ class RouterCompiler extends BaseCompiler
         }
 
         return [];
-    }
-
-    /**
-     * http://www.w3.org/Protocols/rfc2616/rfc2616-sec5.html#sec5.1.1
-     * Every HEAD needs a GET.
-     */
-    private function generateRfc2616(): void
-    {
-        foreach ($this->routesNeedingHeadEquivalents as $values) {
-            if ($values !== false) {
-                /**
-                 * @psalm-suppress PossiblyInvalidArgument
-                 * @phpstan-ignore-next-line
-                 */
-                $this->analyzeRoute($values['route'], $values['class'], $values['method']);
-            }
-        }
     }
 
     /**
