@@ -6,13 +6,18 @@ namespace Riaf\Compiler;
 
 use Attribute;
 use Exception;
+use JetBrains\PhpStorm\Pure;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
+use ReflectionException;
+use Riaf\Compiler\Analyzer\AnalyzerInterface;
+use Riaf\Compiler\Emitter\ContainerEmitter;
 use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\ContainerCompilerConfiguration;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
+use Riaf\Metrics\Timing;
 use RuntimeException;
 use Throwable;
 
@@ -27,20 +32,32 @@ class ContainerCompiler extends BaseCompiler
     /** @var array<string, ServiceDefinition|false> */
     private array $services = [];
 
+    private ContainerEmitter $emitter;
+
+    #[Pure]
+    public function __construct(AnalyzerInterface $analyzer, Timing $timing, BaseConfiguration $config)
+    {
+        parent::__construct($analyzer, $timing, $config);
+        $this->emitter = new ContainerEmitter($config, $this);
+    }
+
     public function supportsCompilation(): bool
     {
         return $this->config instanceof ContainerCompilerConfiguration;
     }
 
+    /**
+     * @throws ReflectionException
+     * @throws Exception
+     */
     public function compile(): bool
     {
         $this->timing->start(self::class);
         /** @var ContainerCompilerConfiguration $config */
         $config = $this->config;
-        $this->openResultFile($config->getContainerFilepath());
 
         // First collect all project-related classes
-        foreach ($this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]) as $class) {
+        foreach ($this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getContainerFilepath(), $this)]) as $class) {
             /* @var ReflectionClass $class */
             $this->analyzeClass($class);
         }
@@ -151,7 +168,10 @@ class ContainerCompiler extends BaseCompiler
             $this->constructionMethodCache['projectRoot'] = '$this->get(\Riaf\Configuration\BaseConfiguration::class)->getProjectRoot()';
         }
 
-        $this->generateContainer();
+        $this->emitter->emitContainer($this->services, $this->needsSeparateConstructor, $this->constructionMethodCache);
+        $this->services = [];
+        $this->needsSeparateConstructor = [];
+        $this->constructionMethodCache = [];
 
         $this->timing->stop(self::class);
 
@@ -160,6 +180,8 @@ class ContainerCompiler extends BaseCompiler
 
     /**
      * @param ReflectionClass<object> $class
+     *
+     * @throws ReflectionException
      */
     private function analyzeClass(ReflectionClass $class, ?ServiceDefinition $predefinedDefinition = null): void
     {
@@ -259,240 +281,6 @@ class ContainerCompiler extends BaseCompiler
             }
 
             $definition->setParameters($parameters);
-        }
-    }
-
-    private function generateContainer(): void
-    {
-        $this->generateHeader();
-
-        $availableServices = $this->generateContainerGetter();
-
-        $this->generateContainerHasser($availableServices);
-
-        $this->generateSeparateMethods();
-
-        $this->writeLine('}');
-    }
-
-    private function generateHeader(): void
-    {
-        /** @var ContainerCompilerConfiguration $config */
-        $config = $this->config;
-        $namespace = $config->getContainerNamespace();
-        $this->writeLine('<?php');
-        $this->writeLine(
-            <<<HEADER
-namespace $namespace;
-
-class Container implements \Psr\Container\ContainerInterface
-{
-    /** @var array<string, object> */
-    private array \$instantiatedServices = [];
-
-    /** @throws \Psr\Container\NotFoundExceptionInterface */
-    public function get(string \$id)
-    {
-        return \$this->instantiatedServices[\$id] ?? match (\$id){
-HEADER
-        );
-    }
-
-    /**
-     * @return string[]
-     */
-    private function generateContainerGetter(): array
-    {
-        /** @var string[] $availableServices */
-        $availableServices = [];
-
-        foreach ($this->services as $className => $serviceDefinition) {
-            // Skip those where the implementation is not clearly defined
-            if ($serviceDefinition === false) {
-                continue;
-            }
-
-            $method = $this->generateAutowiredConstructor($className, $serviceDefinition);
-
-            // Cannot provide this service, skip it
-            if ($method === null) {
-                continue;
-            }
-
-            $this->writeLine(
-                "\"$className\" => $method,",
-                3
-            );
-
-            $availableServices[] = $className;
-        }
-
-        $this->writeLine(
-            'default => throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException($id)',
-            3
-        );
-
-        $this->writeLine('};', 2);
-        $this->writeLine('}', 1);
-        $this->writeLine();
-
-        return $availableServices;
-    }
-
-    private function generateAutowiredConstructor(string $key, ServiceDefinition $serviceDefinition): ?string
-    {
-        $className = $serviceDefinition->getClassName();
-
-        if (isset($this->constructionMethodCache[$className])) {
-            return $this->constructionMethodCache[$className];
-        }
-
-        $parameters = [];
-
-        foreach ($serviceDefinition->getParameters() as $parameter) {
-            $getter = $parameter->getName() . ': ';
-            $generated = $this->createGetterFromParameter($parameter);
-            // We cannot inject a parameter. Therefore we cannot construct the service.
-            // Return null
-            // TODO: Remove the specific parameter from the usedInConstructor list to stop generating the separate method
-            if ($generated === null) {
-                return null;
-            }
-            $parameters[] = $getter . $generated;
-        }
-
-        $parameterString = implode(', ', $parameters);
-        $method = "\$this->instantiatedServices[\"$key\"] = ";
-
-        // If the key is not the className then it's likely an interface,
-        // which means that we need to save the service under the className as well.
-        if ($key !== $className) {
-            $method .= "\$this->instantiatedServices[\"$className\"] ?? \$this->instantiatedServices[\"$className\"] = ";
-        }
-        $method .= "new \\$className($parameterString)";
-
-        return $method;
-    }
-
-    private function createGetterFromParameter(ParameterDefinition $parameter): string|int|float|null
-    {
-        if ($parameter->isConstantPrimitive()) {
-            return (string) $parameter->getValue();
-        } elseif ($parameter->isString()) {
-            return '"' . $parameter->getValue() . '"';
-        } elseif ($parameter->isNamedConstant()) {
-            return $parameter->getValue();
-        } elseif ($parameter->isNull()) {
-            return 'null';
-        } elseif ($parameter->isBool()) {
-            return $parameter->getValue() ? 'true' : 'false';
-        } elseif ($parameter->isEnv()) {
-            $generated = '$_SERVER["' . $parameter->getValue() . '"]';
-            $fallback = $parameter->getFallback();
-
-            if ($fallback !== null) {
-                $generatedFallback = $this->createGetterFromParameter($fallback);
-
-                if ($generatedFallback !== null) {
-                    $generated .= ' ?? ' . $generatedFallback;
-                }
-            }
-
-            return $generated;
-        } elseif ($parameter->isInjected()) {
-            $value = $parameter->getValue();
-            if (isset($this->services[$value]) && $this->services[$value] !== false) {
-                // Check that we can generate the constructor for this service
-                if ($this->generateAutowiredConstructor($value, $this->services[$value]) !== null) {
-                    $normalizedName = $this->normalizeClassNameToMethodName($value);
-                    $generated = "\$this->instantiatedServices[\"$value\"] ?? \$this->$normalizedName()";
-                    $this->needsSeparateConstructor[$value] = true;
-
-                    return $generated;
-                }
-            } elseif ($parameter->isSkipIfNotFound()) {
-                return null;
-            }
-            $fallback = $parameter->getFallback();
-
-            if ($fallback === null) {
-                return null;
-            }
-
-            $generated = $this->createGetterFromParameter($fallback);
-
-            if ($generated === null) {
-                return null;
-            }
-
-            return $generated;
-        }
-
-        return null;
-    }
-
-    private function normalizeClassNameToMethodName(string $className): string
-    {
-        return str_replace('\\', '_', $className);
-    }
-
-    /**
-     * @param string[] $availableServices
-     */
-    private function generateContainerHasser(array $availableServices): void
-    {
-        $this->writeLine('/** @var array<string, bool> */', 1);
-        $this->writeLine('private const AVAILABLE_SERVICES = [', 1);
-
-        foreach ($availableServices as $availableService) {
-            $this->writeLine("\"$availableService\" => true,", 2);
-        }
-
-        $this->writeLine('];', 1);
-        $this->writeLine();
-        $this->writeLine('public function has(string $id): bool', 1);
-        $this->writeLine('{', 1);
-        $this->writeLine('return isset(self::AVAILABLE_SERVICES[$id]);', 2);
-        $this->writeLine('}', 1);
-    }
-
-    private function generateSeparateMethods(): void
-    {
-        $generated = [];
-
-        foreach ($this->needsSeparateConstructor as $className => $_) {
-            if (isset($generated[$className])) {
-                continue;
-            }
-
-            $throws = false;
-            $method = null;
-
-            if (isset($this->services[$className]) && $this->services[$className] !== false) {
-                $serviceDefinition = $this->services[$className];
-                $method = $this->generateAutowiredConstructor($className, $serviceDefinition);
-            } else {
-                $throws = true;
-                $method = "throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException(\"$className\")";
-            }
-
-            if ($method === null) {
-                $throws = true;
-                $method = "throw new \\Riaf\\PsrExtensions\\Container\\IdNotFoundException(\"$className\")";
-            }
-
-            $normalizedName = $this->normalizeClassNameToMethodName($className);
-
-            if ($throws) {
-                $this->writeLine('/** @throws \\Psr\\Container\\NotFoundExceptionInterface */', 1);
-            }
-
-            $this->writeLine("public function $normalizedName(): \\$className", 1);
-            $this->writeLine('{', 1);
-            $this->writeLine("return $method;", 2);
-            $this->writeLine('}', 1);
-
-            $generated[$className] = true;
         }
     }
 }

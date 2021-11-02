@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler;
 
-use Exception;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
@@ -12,28 +11,11 @@ use ReflectionType;
 use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Configuration\BaseConfiguration;
 use Riaf\Metrics\Timing;
-use RuntimeException;
 
 abstract class BaseCompiler
 {
-    protected ?string $outputFile = null;
-
-    private string $lineBreak = PHP_EOL;
-
-    /**
-     * @var resource|null
-     */
-    private $handle = null;
-
     public function __construct(protected AnalyzerInterface $analyzer, protected Timing $timing, protected BaseConfiguration $config)
     {
-    }
-
-    public function __destruct()
-    {
-        if ($this->handle !== null) {
-            fclose($this->handle);
-        }
     }
 
     abstract public function compile(): bool;
@@ -64,38 +46,14 @@ abstract class BaseCompiler
         return null;
     }
 
-    protected function writeLine(string $line = '', int $indentation = 0): void
+    protected function getOutputFile(string $filePath, BaseCompiler $compiler): ?string
     {
-        if ($this->handle === null) {
-            // TODO: Exception
-            throw new RuntimeException();
+        $handle = $this->config->getFileHandle($compiler);
+
+        if ($handle === null) {
+            return $this->config->getProjectRoot() . $filePath;
         }
 
-        $indentation = min($indentation, 10);
-        /** @phpstan-ignore-next-line */
-        $indents = implode(array_fill(0, $indentation, "\t"));
-        fwrite($this->handle, "$indents$line{$this->lineBreak}");
-    }
-
-    /**
-     * @return resource
-     *
-     * @throws Exception
-     */
-    protected function openResultFile(string $path)
-    {
-        $this->handle = $this->config->getFileHandle($this);
-
-        if ($this->handle === null) {
-            $this->outputFile = $this->config->getProjectRoot() . $path;
-            $this->handle = fopen($this->outputFile, 'wb+') ?: null;
-        }
-
-        if ($this->handle === null) {
-            // TODO: Exception
-            throw new Exception();
-        }
-
-        return $this->handle;
+        return null;
     }
 }

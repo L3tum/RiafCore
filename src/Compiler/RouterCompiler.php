@@ -63,7 +63,10 @@ class RouterCompiler extends BaseCompiler
         $this->staticRoutes['HEAD'] = [];
         $this->routingTree['HEAD'] = [];
 
-        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
+        /** @var RouterCompilerConfiguration $config */
+        $config = $this->config;
+
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getRouterFilepath(), $this)]);
 
         foreach ($classes as $class) {
             $this->analyzeClass($class);
@@ -91,6 +94,9 @@ class RouterCompiler extends BaseCompiler
 
         // TODO: Run optimizations
         $this->emitter->emitRouter($this->staticRoutes, $this->routingTree);
+        $this->staticRoutes = [];
+        $this->routingTree = [];
+        $this->recordedClasses = [];
 
         $this->timing->stop(self::class);
 
@@ -137,7 +143,12 @@ class RouterCompiler extends BaseCompiler
                     $methodRoute->mergeRoute($instance->getRoute());
                 }
 
-                $this->analyzeRoute($methodRoute, $class->getName(), $method->getName());
+                if ($method->isStatic() && $class->isAnonymous()) {
+                    // TODO: Exception
+                    throw new Exception();
+                }
+
+                $this->analyzeRoute($methodRoute, $class->getName(), $method->getName(), $method->isStatic());
             }
         }
     }
@@ -145,7 +156,7 @@ class RouterCompiler extends BaseCompiler
     /**
      * @psalm-suppress PossiblyInvalidArrayOffset PHPStan gets it
      */
-    private function analyzeRoute(Route $route, string $targetClass, string $targetMethod): void
+    private function analyzeRoute(Route $route, string $targetClass, string $targetMethod, bool $isStatic): void
     {
         $uri = $route->getRoute();
         $method = $route->getMethod();
@@ -157,7 +168,7 @@ class RouterCompiler extends BaseCompiler
             if (isset($this->staticRoutes[$method][$uri])) {
                 throw new RuntimeException('Duplicated Route ' . $uri);
             }
-            $this->staticRoutes[$method][$uri] = new StaticRoute($uri, $method, $targetClass, $targetMethod);
+            $this->staticRoutes[$method][$uri] = new StaticRoute($uri, $method, $targetClass, $targetMethod, $isStatic);
 
             return;
         }
@@ -220,7 +231,7 @@ class RouterCompiler extends BaseCompiler
                     throw new RuntimeException('Duplicated route ' . $uri);
                 }
 
-                $currentRouting[$part]['call'] = ['class' => $targetClass, 'method' => $targetMethod];
+                $currentRouting[$part]['call'] = ['class' => $targetClass, 'method' => $targetMethod, 'static' => $isStatic];
             } else {
                 if (!isset($currentRouting[$part]['next'])) {
                     $currentRouting[$part]['next'] = [];
@@ -252,6 +263,8 @@ class RouterCompiler extends BaseCompiler
      * Adds the specified route to the routing table.
      *
      * @return $this
+     *
+     * @throws Exception
      */
     public function addRoute(Route $route, string $handler): self
     {
@@ -262,7 +275,24 @@ class RouterCompiler extends BaseCompiler
             $targetMethod = $handler;
         }
 
-        $this->analyzeRoute($route, $targetClass, $targetMethod);
+        $isStatic = false;
+
+        if (class_exists($targetClass)) {
+            $class = new ReflectionClass($targetClass);
+
+            if ($class->hasMethod($targetMethod)) {
+                $method = $class->getMethod($targetMethod);
+
+                if ($method->isStatic() && $class->isAnonymous()) {
+                    // TODO: Exception
+                    throw new Exception();
+                }
+
+                $isStatic = $method->isStatic();
+            }
+        }
+
+        $this->analyzeRoute($route, $targetClass, $targetMethod, $isStatic);
 
         return $this;
     }

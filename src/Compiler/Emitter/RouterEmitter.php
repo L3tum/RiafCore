@@ -25,7 +25,7 @@ class RouterEmitter extends BaseEmitter
      *
      * @throws Exception
      */
-    public function emitRouter(array $staticRoutes, array $routingTree): void
+    public function emitRouter(array &$staticRoutes, array &$routingTree): void
     {
         /** @var RouterCompilerConfiguration $config */
         $config = $this->config;
@@ -78,7 +78,7 @@ HEADER
      * @param array<string, array<string, StaticRoute>>       $staticRoutes
      * @param array<string, array<int, array<string, mixed>>> $routingTree
      */
-    private function emitStaticHandler(array $staticRoutes, array $routingTree): void
+    private function emitStaticHandler(array &$staticRoutes, array &$routingTree): void
     {
         $this->writeLine('public function handle(ServerRequestInterface $request): ResponseInterface', 1);
         $this->writeLine('{', 1);
@@ -109,10 +109,15 @@ HEADER
                      * @phpstan-ignore-next-line
                      */
                     $params = implode(', ', $this->compiler->generateParams($targetClass, $targetMethod));
-                    $this->writeLine(
-                        "\"$route\" => \$this->container->get(\"{$targetClass}\")->{$targetMethod}({$params}),",
-                        4
-                    );
+
+                    if ($staticRoute->isStatic()) {
+                        $this->writeLine("\"$route\" => \\$targetClass::$targetMethod($params),", 4);
+                    } else {
+                        $this->writeLine(
+                            "\"$route\" => \$this->container->get(\"{$targetClass}\")->{$targetMethod}({$params}),",
+                            4
+                        );
+                    }
                 }
 
                 if (
@@ -141,7 +146,7 @@ HEADER
      * @param array<string, array<mixed>> $tree
      * @noinspection PhpPluralMixedCanBeReplacedWithArrayInspection
      */
-    private function hasRoutesWithMethod(array $tree, string $method): bool
+    private function hasRoutesWithMethod(array &$tree, string $method): bool
     {
         return isset($tree[$method]) && count($tree[$method]) > 0;
     }
@@ -150,7 +155,7 @@ HEADER
      * @param array<string, array<string, StaticRoute>>       $staticRoutes
      * @param array<string, array<int, array<string, mixed>>> $routingTree
      */
-    private function emitStaticMatcher(array $staticRoutes, array $routingTree): void
+    private function emitStaticMatcher(array &$staticRoutes, array &$routingTree): void
     {
         $this->writeLine('public function match(string $method, string $path): ?string', 1);
         $this->writeLine('{', 1);
@@ -205,7 +210,7 @@ HEADER
      * @param array<string, array<int, array<string, mixed>>> $routingTree
      * @param array<string, array<string, StaticRoute>>       $staticRoutes
      */
-    private function emitDynamicHandler(array $routingTree, array $staticRoutes): void
+    private function emitDynamicHandler(array &$routingTree, array &$staticRoutes): void
     {
         $this->writeLine('private function handleDynamicRoute(string $method, string $path, ServerRequestInterface $request): ResponseInterface', 1);
         $this->writeLine('{', 1);
@@ -313,15 +318,20 @@ HEADER
         if (isset($route['call'])) {
             $class = $route['call']['class'];
             $method = $route['call']['method'];
-            /**
-             * @noinspection PhpPossiblePolymorphicInvocationInspection
-             * @psalm-suppress UndefinedMethod
-             * @phpstan-ignore-next-line
-             */
-            $params = implode(', ', $this->compiler->generateParams($class, $method, $capturedParams));
 
             if ($generateCall) {
-                $this->writeLine("\$this->container->get(\"$class\")->$method($params),");
+                /**
+                 * @noinspection PhpPossiblePolymorphicInvocationInspection
+                 * @psalm-suppress UndefinedMethod
+                 * @phpstan-ignore-next-line
+                 */
+                $params = implode(', ', $this->compiler->generateParams($class, $method, $capturedParams));
+
+                if ($route['call']['static']) {
+                    $this->writeLine("\\$class::$method($params),");
+                } else {
+                    $this->writeLine("\$this->container->get(\"$class\")->$method($params),");
+                }
             } else {
                 $this->writeLine("\"$class::$method\",");
             }
@@ -407,7 +417,7 @@ HEADER
      * @param array<string, array<int, array<string, mixed>>> $routingTree
      * @param array<string, array<string, StaticRoute>>       $staticRoutes
      */
-    private function emitDynamicMatcher(array $routingTree, array $staticRoutes): void
+    private function emitDynamicMatcher(array &$routingTree, array &$staticRoutes): void
     {
         $this->writeLine('private function matchDynamicRoute(string $method, string $path): ?string', 1);
         $this->writeLine('{', 1);

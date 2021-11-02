@@ -5,8 +5,13 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use Generator;
+use JetBrains\PhpStorm\Pure;
 use ReflectionClass;
+use Riaf\Compiler\Analyzer\AnalyzerInterface;
+use Riaf\Compiler\Emitter\PreloadingEmitter;
+use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\PreloadCompilerConfiguration;
+use Riaf\Metrics\Timing;
 
 class PreloadingCompiler extends BaseCompiler
 {
@@ -14,6 +19,15 @@ class PreloadingCompiler extends BaseCompiler
      * @var array<string, bool>
      */
     private array $preloadedFiles = [];
+
+    private PreloadingEmitter $emitter;
+
+    #[Pure]
+    public function __construct(AnalyzerInterface $analyzer, Timing $timing, BaseConfiguration $config)
+    {
+        parent::__construct($analyzer, $timing, $config);
+        $this->emitter = new PreloadingEmitter($config, $this);
+    }
 
     public function supportsCompilation(): bool
     {
@@ -25,10 +39,8 @@ class PreloadingCompiler extends BaseCompiler
         $this->timing->start(self::class);
         /** @var PreloadCompilerConfiguration $config */
         $config = $this->config;
-        $this->openResultFile($config->getPreloadingFilepath());
-        $this->writeLine('<?php');
 
-        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getPreloadingFilepath(), $this)]);
 
         foreach ($classes as $class) {
             $preloadableClasses = $this->analyzeClassUsageInClass($class);
@@ -36,7 +48,7 @@ class PreloadingCompiler extends BaseCompiler
             foreach ($preloadableClasses as $preloadableClass) {
                 /** @var ReflectionClass<object> $preloadableClass */
                 $filePath = $preloadableClass->getFileName();
-                $this->writeLine("opcache_compile_file(\"$filePath\");");
+                $this->preloadedFiles[$filePath] = true;
             }
         }
 
@@ -45,11 +57,11 @@ class PreloadingCompiler extends BaseCompiler
                 $additionalPreloadedFile = $this->config->getProjectRoot() . '/' . $additionalPreloadedFile;
             }
 
-            if (!isset($this->preloadedFiles[$additionalPreloadedFile])) {
-                $this->preloadedFiles[$additionalPreloadedFile] = true;
-                $this->writeLine("opcache_compile_file(\"$additionalPreloadedFile\");");
-            }
+            $this->preloadedFiles[$additionalPreloadedFile] = true;
         }
+
+        $this->emitter->emitPreloading($this->preloadedFiles);
+        $this->preloadedFiles = [];
 
         $this->timing->stop(self::class);
 

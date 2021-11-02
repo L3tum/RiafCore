@@ -20,6 +20,7 @@ use Riaf\Metrics\Clock\SystemClock;
 use Riaf\Metrics\Timing;
 use Riaf\PsrExtensions\Middleware\Middleware;
 use Riaf\Routing\Route;
+use Riaf\TestCases\Router\StaticFunction;
 
 class RouterCompilerTest extends TestCase
 {
@@ -215,6 +216,15 @@ class RouterCompilerTest extends TestCase
         self::assertEquals('manually::added', $match);
     }
 
+    public function testHandlesStaticFunction(): void
+    {
+        $container = $this->createMock(ContainerInterface::class);
+        $router = $this->getRouter($container);
+        $request = new ServerRequest('GET', '/static/function');
+        $response = $router->process($request, self::$requestHandler);
+        self::assertEquals(200, $response->getStatusCode());
+    }
+
     public function setUp(): void
     {
         // Why? Well, setUpBeforeClasses is not counted for coverage..
@@ -289,7 +299,7 @@ class RouterCompilerTest extends TestCase
         self::$mockingClass = $mockingClass;
         self::$requestHandler = $this->createMock(RequestHandlerInterface::class);
 
-        $analyzer->expects(self::once())->method('getUsedClasses')->with($config->getProjectRoot())->willReturn(new ArrayIterator([new ReflectionClass($mockingClass)]));
+        $analyzer->expects(self::once())->method('getUsedClasses')->with($config->getProjectRoot())->willReturn(new ArrayIterator([new ReflectionClass($mockingClass), new ReflectionClass(StaticFunction::class)]));
 
         $compiler = new RouterCompiler($analyzer, new Timing(new SystemClock()), $config);
         $compiler->addRoute(new Route('/manually/added/route'), 'manually::added');

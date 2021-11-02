@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler;
 
+use JetBrains\PhpStorm\Pure;
 use Psr\Http\Server\MiddlewareInterface;
 use ReflectionClass;
+use Riaf\Compiler\Analyzer\AnalyzerInterface;
+use Riaf\Compiler\Emitter\MiddlewareDispatcherEmitter;
+use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\MiddlewareDispatcherCompilerConfiguration;
 use Riaf\Configuration\ServiceDefinition;
+use Riaf\Metrics\Timing;
 use Riaf\PsrExtensions\Middleware\Middleware;
 
 class MiddlewareDispatcherCompiler extends BaseCompiler
@@ -16,15 +21,22 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
     /** @var array<string, bool> */
     private array $recordedMiddlewares = [];
 
+    private MiddlewareDispatcherEmitter $emitter;
+
+    #[Pure]
+    public function __construct(AnalyzerInterface $analyzer, Timing $timing, BaseConfiguration $config)
+    {
+        parent::__construct($analyzer, $timing, $config);
+        $this->emitter = new MiddlewareDispatcherEmitter($config, $this);
+    }
+
     public function compile(): bool
     {
         $this->timing->start(self::class);
-
         /** @var MiddlewareDispatcherCompilerConfiguration $config */
         $config = $this->config;
-        $this->openResultFile($config->getMiddlewareDispatcherFilepath());
 
-        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->outputFile]);
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getMiddlewareDispatcherFilepath(), $this)]);
         /** @var MiddlewareDefinition[] $middlewares */
         $middlewares = [];
 
@@ -63,7 +75,9 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
             return ($a->getPriority() <=> $b->getPriority()) * -1;
         });
 
-        $this->generateMiddlewareDispatcher($config->getMiddlewareDispatcherNamespace(), $middlewares);
+        $this->emitter->emitMiddlewareDispatcher($middlewares);
+        $this->recordedMiddlewares = [];
+        unset($middlewares);
 
         $this->timing->stop(self::class);
 
@@ -96,71 +110,6 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
         $instance = $attribute->newInstance();
 
         return new MiddlewareDefinition($middleware->getName(), $instance->getPriority());
-    }
-
-    /**
-     * @param MiddlewareDefinition[] $middlewares
-     */
-    private function generateMiddlewareDispatcher(string $namespace, array $middlewares): void
-    {
-        $this->writeLine('<?php');
-        $this->writeLine(
-            <<<HEADER
-namespace $namespace;
-
-use Psr\Http\Server\MiddlewareInterface;
-use Psr\Http\Server\RequestHandlerInterface;
-use Psr\Container\ContainerInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ResponseFactoryInterface;
-
-class MiddlewareDispatcher implements RequestHandlerInterface
-{
-    private ?ResponseInterface \$response;
-    private int \$currentMiddleware = -1;
-    private const MIDDLEWARES = [
-HEADER
-        );
-
-        foreach ($middlewares as $middleware) {
-            $class = $middleware->getReflectionClass();
-            $this->writeLine("\"$class->name\",", 2);
-        }
-
-        $this->writeLine(
-            <<<ENDING
-    ];
-    
-    public function __construct(private ContainerInterface \$container)
-    {
-    }
-    
-    public function handle(ServerRequestInterface \$request): ResponseInterface
-    {
-        \$this->currentMiddleware++;
-        \$middleware = self::MIDDLEWARES[\$this->currentMiddleware] ?? null;
-        
-        if (\$middleware === null)
-        {
-            if (\$this->response === null)
-            {
-                \$this->response = \$this->container->get(ResponseFactoryInterface::class)->createResponse(500);
-            }
-            
-            \$this->currentMiddleware = -1;
-            
-            return \$this->response;
-        }
-        
-        /** @var MiddlewareInterface \$middlewareInstance */
-        \$middlewareInstance = \$this->container->get(\$middleware);
-        
-        return \$middlewareInstance->process(\$request, \$this);
-    }
-}
-ENDING
-        );
     }
 
     public function supportsCompilation(): bool

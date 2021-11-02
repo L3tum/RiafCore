@@ -6,7 +6,7 @@ namespace Riaf\Compiler\Router;
 
 class StaticRoute
 {
-    public function __construct(protected string $uri, protected string $method, protected string $targetClass, protected string $targetMethod)
+    public function __construct(protected string $uri, protected string $method, protected string $targetClass, protected string $targetMethod, protected bool $static)
     {
     }
 
@@ -28,5 +28,10 @@ class StaticRoute
     public function getTargetMethod(): string
     {
         return $this->targetMethod;
+    }
+
+    public function isStatic(): bool
+    {
+        return $this->static;
     }
 }
