@@ -127,6 +127,34 @@ class EventDispatcherCompiler extends BaseCompiler
         }
     }
 
+    /**
+     * @throws Exception
+     */
+    public function addListener(string $event, string $handler): void
+    {
+        if (str_contains($handler, '::')) {
+            [$class, $method] = explode('::', $handler, 2);
+        } else {
+            $class = $method = $handler;
+        }
+
+        if (!class_exists($class)) {
+            // TODO: Exception
+            throw new Exception("$class does not exist!");
+        }
+        $reflectionClass = new ReflectionClass($class);
+
+        if (!$reflectionClass->hasMethod($method)) {
+            throw new Exception("$class::$method does not exist!");
+        }
+
+        if (!isset($this->listeners[$event])) {
+            $this->listeners[$event] = [];
+        }
+
+        $this->listeners[$event][] = ['class' => $class, 'method' => $method, 'static' => $reflectionClass->getMethod($method)->isStatic()];
+    }
+
     public function supportsCompilation(): bool
     {
         return $this->config instanceof EventDispatcherCompilerConfiguration;

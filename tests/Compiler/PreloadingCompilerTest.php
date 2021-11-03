@@ -20,6 +20,7 @@ class PreloadingCompilerTest extends TestCase
 
     public function testUsesOpCacheCompileFile(): void
     {
+        $this->compiler->supportsCompilation();
         $this->compiler->compile();
         $stream = $this->config->getFileHandle($this->compiler);
         fseek($stream, 0);

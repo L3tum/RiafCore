@@ -187,6 +187,7 @@ class ContainerCompilerTest extends TestCase
         };
 
         $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler->supportsCompilation();
         $compiler->compile();
 
         $stream = $config->getFileHandle($compiler);

@@ -41,7 +41,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 
 class MiddlewareDispatcher implements RequestHandlerInterface
 {
-    private ?ResponseInterface \$response;
+    private ?ResponseInterface \$response = null;
     private int \$currentMiddleware = -1;
     private const MIDDLEWARES = [
 HEADER
