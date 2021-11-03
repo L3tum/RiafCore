@@ -85,7 +85,7 @@ HEADER
         $this->writeLine('$method = $request->getMethod();', 2);
         $this->writeLine('$path = $request->getUri()->getPath();', 2);
 
-        if (count($routingTree) > 0) {
+        if (count($routingTree) > 1 || count($routingTree['HEAD']) > 0) {
             $default = '$this->handleDynamicRoute($method, $path, $request)';
         } else {
             $default = '$this->container->get(ResponseFactoryInterface::class)->createResponse(404)';
@@ -160,7 +160,7 @@ HEADER
         $this->writeLine('public function match(string $method, string $path): ?string', 1);
         $this->writeLine('{', 1);
 
-        if (count($routingTree) > 0) {
+        if (count($routingTree) > 1 || count($routingTree['HEAD']) > 0) {
             $default = '$this->matchDynamicRoute($method, $path)';
         } else {
             $default = 'null';
