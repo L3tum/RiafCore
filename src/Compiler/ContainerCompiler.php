@@ -81,7 +81,11 @@ class ContainerCompiler extends BaseCompiler
                 }
 
                 if ($key !== $className) {
-                    $this->services[$key] = $this->services[$className];
+                    $this->services[$key] = &$this->services[$className];
+                }
+
+                foreach ($value->getAliases() as $alias) {
+                    $this->services[$alias] = &$this->services[$key];
                 }
 
                 // Go over the defined parameters
@@ -122,7 +126,7 @@ class ContainerCompiler extends BaseCompiler
 
                 // Add the key as a name for the service
                 if ($key !== $value && isset($this->services[$value])) {
-                    $this->services[$key] = $this->services[$value];
+                    $this->services[$key] = &$this->services[$value];
                 }
             } elseif ($value instanceof MiddlewareDefinition) {
                 try {
@@ -131,7 +135,7 @@ class ContainerCompiler extends BaseCompiler
 
                     // Add the key as a name for the service
                     if ($key !== $class->name && isset($this->services[$class->name])) {
-                        $this->services[$key] = $this->services[$class->name];
+                        $this->services[$key] = &$this->services[$class->name];
                     }
                 } catch (Throwable) {
                     throw new RuntimeException('Class does not exist!');
@@ -208,7 +212,7 @@ class ContainerCompiler extends BaseCompiler
             $interfaceName = $interface->getName();
 
             if (!isset($this->services[$interfaceName])) {
-                $this->services[$interfaceName] = $definition;
+                $this->services[$interfaceName] = &$this->services[$className];
             } else {
                 $this->services[$interfaceName] = false;
             }
@@ -222,7 +226,7 @@ class ContainerCompiler extends BaseCompiler
 
             if ($extensionClass->isInterface() || $extensionClass->isAbstract()) {
                 if (!isset($this->services[$extensionClassName])) {
-                    $this->services[$extensionClassName] = $definition;
+                    $this->services[$extensionClassName] = &$this->services[$className];
                 } else {
                     $this->services[$extensionClassName] = false;
                 }
@@ -259,24 +263,25 @@ class ContainerCompiler extends BaseCompiler
                 if ($parameter->isDefaultValueAvailable()) {
                     $value = $parameter->getDefaultValue();
                     // Named constant
-                    if ($parameter->isDefaultValueConstant() && (is_object($value) || is_array($value))) {
+                    if ($parameter->isDefaultValueConstant() && $parameter->getDefaultValueConstantName() !== null) {
                         /** @noinspection PhpUnhandledExceptionInspection */
                         $name = $parameter->getDefaultValueConstantName();
 
-                        if ($name !== null) {
-                            if (str_starts_with($name, 'self::')) {
-                                $name = str_replace('self::', "\\$className::", $name);
-                            }
-
-                            $param = $param->withFallback(ParameterDefinition::createNamedConstant($parameter->name, $name));
+                        if (str_starts_with($name, 'self::')) {
+                            $name = str_replace('self::', "\\$className::", $name);
                         }
+
+                        $param = $param->withFallback(ParameterDefinition::createNamedConstant($parameter->name, $name));
                     } else {
                         try {
                             $param = $param->withFallback(ParameterDefinition::fromValue($parameter->name, $value));
                         } catch (Exception) {
-                            $param = $param->withFallback(ParameterDefinition::createSkipIfNotFound($parameter->name));
+                            // Intentionally left blank
                         }
                     }
+                } else {
+                    // Skip if no default value available and cannot be injected
+                    $param = $param->withFallback(ParameterDefinition::createSkipIfNotFound($parameter->name));
                 }
             }
 

@@ -11,8 +11,10 @@ final class ServiceDefinition
 {
     public function __construct(
         private string $className,
-        /** @var ParameterDefinition[] */
-        private array $parameters = []
+        /** @var ParameterDefinition[] $parameters */
+        private array $parameters = [],
+        /** @var string[] $aliases */
+        private array $aliases = []
     ) {
     }
 
@@ -59,6 +61,33 @@ final class ServiceDefinition
         }
 
         return null;
+    }
+
+    public function addAlias(string $alias): self
+    {
+        $this->aliases[] = $alias;
+
+        return $this;
+    }
+
+    /**
+     * @param string|string[] $aliases
+     *
+     * @return $this
+     */
+    public function setAliases(string|array $aliases): self
+    {
+        $this->aliases = is_string($aliases) ? [$aliases] : $aliases;
+
+        return $this;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function getAliases(): array
+    {
+        return $this->aliases;
     }
 
     /**

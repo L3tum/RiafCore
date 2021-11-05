@@ -48,6 +48,10 @@ class PreloadingCompiler extends BaseCompiler
             foreach ($preloadableClasses as $preloadableClass) {
                 /** @var ReflectionClass<object> $preloadableClass */
                 $filePath = $preloadableClass->getFileName();
+
+                if ($filePath === false) {
+                    continue;
+                }
                 $this->preloadedFiles[$filePath] = true;
             }
         }

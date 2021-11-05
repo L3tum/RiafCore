@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Riaf\Configuration;
 
 use JetBrains\PhpStorm\Pure;
+use JsonSerializable;
 use RuntimeException;
 
-final class ParameterDefinition
+final class ParameterDefinition implements JsonSerializable
 {
     public function __construct(
         private string $name,
@@ -142,6 +143,16 @@ final class ParameterDefinition
         return new self($name, false, skipIfNotFound: true);
     }
 
+    public function jsonSerialize()
+    {
+        return [
+            'name' => $this->getName(),
+            'value' => $this->getValue(),
+            'type' => $this->isBool() ? 'bool' : ($this->isInjected() ? 'injected' : ($this->isSkipIfNotFound() ? 'skip' : ($this->isEnv() ? 'env' : ($this->isNamedConstant() ? 'named_constant' : ($this->isString() ? 'string' : ($this->isConstantPrimitive() ? 'primitive' : ($this->isNull() ? 'null' : 'no type'))))))),
+            'fallback' => json_encode($this->getFallback()),
+        ];
+    }
+
     public function getName(): string
     {
         return $this->name;
@@ -152,14 +163,9 @@ final class ParameterDefinition
         return $this->value;
     }
 
-    public function isConstantPrimitive(): bool
+    public function isBool(): bool
     {
-        return $this->isConstantPrimitive;
-    }
-
-    public function isString(): bool
-    {
-        return $this->isString;
+        return $this->isBool;
     }
 
     public function isEnv(): bool
@@ -172,9 +178,14 @@ final class ParameterDefinition
         return $this->isNamedConstant;
     }
 
-    public function getFallback(): ?ParameterDefinition
+    public function isString(): bool
     {
-        return $this->fallback;
+        return $this->isString;
+    }
+
+    public function isConstantPrimitive(): bool
+    {
+        return $this->isConstantPrimitive;
     }
 
     public function isNull(): bool
@@ -182,8 +193,8 @@ final class ParameterDefinition
         return $this->isNull;
     }
 
-    public function isBool(): bool
+    public function getFallback(): ?ParameterDefinition
     {
-        return $this->isBool;
+        return $this->fallback;
     }
 }

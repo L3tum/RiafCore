@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler\Emitter;
 
+use Exception;
 use JetBrains\PhpStorm\Pure;
 use Psr\EventDispatcher\StoppableEventInterface;
 use ReflectionClass;
@@ -13,6 +14,9 @@ use Riaf\Configuration\EventDispatcherCompilerConfiguration;
 
 class EventDispatcherEmitter extends BaseEmitter
 {
+    /**
+     * @var array<string, array<array{class: string, method: string, static: bool}>>
+     */
     private array $listeners;
 
     #[Pure]
@@ -21,6 +25,11 @@ class EventDispatcherEmitter extends BaseEmitter
         parent::__construct($config, $compiler);
     }
 
+    /**
+     * @param array<string, array<array{class: string, method: string, static: bool}>> $listeners
+     *
+     * @throws Exception
+     */
     public function emitEventDispatcher(array &$listeners): void
     {
         $this->listeners = &$listeners;

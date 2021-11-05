@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use DateTimeImmutable;
+use Nyholm\Psr7\Request;
 use Psr\Http\Message\RequestInterface;
 use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
@@ -123,6 +124,9 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
                 ->setParameters([
                     ParameterDefinition::createBool('value', true),
                 ]),
+            RequestInterface::class => ServiceDefinition::create(Request::class)
+                ->setParameters([['name' => 'method', 'value' => 'GET'], ['name' => 'uri', 'value' => '/some/test']])
+                ->setAliases('some_request_i_dont_want'),
         ];
     }
 

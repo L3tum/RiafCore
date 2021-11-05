@@ -129,8 +129,11 @@ HEADER
             // We cannot inject a parameter. Therefore we cannot construct the service.
             // Return null
             // TODO: Remove the specific parameter from the usedInConstructor list to stop generating the separate method
-            if ($generated === null) {
+            if ($generated === false) {
                 return null;
+            } elseif ($generated === null) {
+                // Skip parameter if it can't be injected and isn't important
+                continue;
             }
             $parameters[] = $getter . $generated;
         }
@@ -148,14 +151,14 @@ HEADER
         return $method;
     }
 
-    private function createGetterFromParameter(ParameterDefinition $parameter): string|int|float|null
+    private function createGetterFromParameter(ParameterDefinition $parameter): string|null|false
     {
         if ($parameter->isConstantPrimitive()) {
             return (string) $parameter->getValue();
         } elseif ($parameter->isString()) {
             return '"' . $parameter->getValue() . '"';
         } elseif ($parameter->isNamedConstant()) {
-            return $parameter->getValue();
+            return "{$parameter->getValue()}";
         } elseif ($parameter->isNull()) {
             return 'null';
         } elseif ($parameter->isBool()) {
@@ -167,7 +170,7 @@ HEADER
             if ($fallback !== null) {
                 $generatedFallback = $this->createGetterFromParameter($fallback);
 
-                if ($generatedFallback !== null) {
+                if ($generatedFallback !== null && $generatedFallback !== false) {
                     $generated .= ' ?? ' . $generatedFallback;
                 }
             }
@@ -184,22 +187,17 @@ HEADER
 
                     return $generated;
                 }
-            } elseif ($parameter->isSkipIfNotFound()) {
-                return null;
             }
+
             $fallback = $parameter->getFallback();
 
             if ($fallback === null) {
                 return null;
             }
 
-            $generated = $this->createGetterFromParameter($fallback);
-
-            if ($generated === null) {
-                return null;
-            }
-
-            return $generated;
+            return $this->createGetterFromParameter($fallback);
+        } elseif ($parameter->isSkipIfNotFound()) {
+            return false;
         }
 
         return null;

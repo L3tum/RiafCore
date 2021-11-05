@@ -161,6 +161,11 @@ class ContainerCompilerTest extends TestCase
         self::assertTrue(self::$container->get(InjectedBoolParameter::class)->isValue());
     }
 
+    public function testHandlesAliases(): void
+    {
+        self::assertEquals('/some/test', self::$container->get('some_request_i_dont_want')->getUri()->getPath());
+    }
+
     // TODO: Array Parsing Tests?
 
     /**
@@ -194,6 +199,8 @@ class ContainerCompilerTest extends TestCase
         fseek($stream, 0);
         $content = stream_get_contents($stream);
         eval('?>' . $content);
+
+//        file_put_contents(dirname(__DIR__) . '/dev_Container.php', $content);
 
         /** @noinspection PhpFieldAssignmentTypeMismatchInspection */
         /** @noinspection PhpUndefinedClassInspection */
