@@ -14,7 +14,8 @@ final class ServiceDefinition
         /** @var ParameterDefinition[] $parameters */
         private array $parameters = [],
         /** @var string[] $aliases */
-        private array $aliases = []
+        private array $aliases = [],
+        private bool $singleton = true
     ) {
     }
 
@@ -106,5 +107,10 @@ final class ServiceDefinition
     public function getClassName(): string
     {
         return $this->className;
+    }
+
+    public function isSingleton(): bool
+    {
+        return $this->singleton;
     }
 }
