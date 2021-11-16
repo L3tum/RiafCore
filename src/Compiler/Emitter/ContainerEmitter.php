@@ -197,18 +197,21 @@ HEADER
      */
     private function generateContainerHasser(array $availableServices): void
     {
-        $this->writeLine('/** @var array<string, bool> */', 1);
-        $this->writeLine('private const AVAILABLE_SERVICES = [', 1);
-
-        foreach ($availableServices as $availableService) {
-            $this->writeLine("\"$availableService\" => true,", 2);
-        }
-
-        $this->writeLine('];', 1);
-        $this->writeLine();
+        $this->writeLine('/** {@inheritDoc} */', 1);
         $this->writeLine('public function has(string $id): bool', 1);
         $this->writeLine('{', 1);
-        $this->writeLine('return isset(self::AVAILABLE_SERVICES[$id]);', 2);
+        $this->writeLine('return match($id)', 2);
+        $this->writeLine('{', 2);
+        $lastOne = array_key_last($availableServices);
+        foreach ($availableServices as $key => $availableService) {
+            if ($key === $lastOne) {
+                $this->writeLine("\"$availableService\" => true,", 3);
+            } else {
+                $this->writeLine("\"$availableService\",", 3);
+            }
+        }
+        $this->writeLine('default => false', 3);
+        $this->writeLine('};', 2);
         $this->writeLine('}', 1);
     }
 }
