@@ -132,13 +132,19 @@ HEADER
         }
 
         $parameterString = implode(', ', $parameters);
-        $method = "\$this->instantiatedServices[\"$key\"] = ";
 
-        // If the key is not the className then it's likely an interface,
-        // which means that we need to save the service under the className as well.
-        if ($key !== $className) {
-            $method .= "\$this->instantiatedServices[\"$className\"] ?? \$this->instantiatedServices[\"$className\"] = ";
+        if ($serviceDefinition->isSingleton()) {
+            $method = "\$this->instantiatedServices[\"$key\"] = ";
+
+            // If the key is not the className then it's likely an interface,
+            // which means that we need to save the service under the className as well.
+            if ($key !== $className) {
+                $method .= "\$this->instantiatedServices[\"$className\"] ?? \$this->instantiatedServices[\"$className\"] = ";
+            }
+        } else {
+            $method = '';
         }
+
         $method .= "new \\$className($parameterString)";
 
         return $method;
