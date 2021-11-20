@@ -99,4 +99,24 @@ class ContainerCompilerErrorCasesTest extends TestCase
         $this->expectException(RuntimeException::class);
         $compiler->compile();
     }
+
+    public function testHandlesManuallyAddedNonExistingService(): void
+    {
+        $config = new class() extends SampleCompilerConfiguration {
+            private $stream = null;
+
+            public function getFileHandle(BaseCompiler $compiler)
+            {
+                if ($this->stream === null) {
+                    $this->stream = fopen('php://memory', 'wb+');
+                }
+
+                return $this->stream;
+            }
+        };
+        $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler->addService('doesnotexist', ServiceDefinition::create('doesnotexist'));
+        $this->expectException(RuntimeException::class);
+        $compiler->compile();
+    }
 }

@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use DateTimeImmutable;
+use Nyholm\Psr7\Request;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
+use Psr\Http\Message\RequestInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
+use Riaf\Configuration\ServiceDefinition;
 use Riaf\Metrics\Clock\SystemClock;
 use Riaf\Metrics\Timing;
 use Riaf\TestCases\Container\DefaultBoolParameter;
@@ -155,6 +158,11 @@ class ContainerCompilerTest extends TestCase
         self::assertTrue(self::$container->get(InjectedBoolParameter::class)->isValue());
     }
 
+    public function testHandlesManuallyAddedServices(): void
+    {
+        self::assertInstanceOf(RequestInterface::class, self::$container->get(RequestInterface::class));
+    }
+
     public function testHandlesAliases(): void
     {
         self::assertEquals('/some/test', self::$container->get('some_request_i_dont_want')->getUri()->getPath());
@@ -187,6 +195,12 @@ class ContainerCompilerTest extends TestCase
 
         $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $this->config);
         $compiler->supportsCompilation();
+        $compiler->addService(
+            RequestInterface::class,
+            ServiceDefinition::create(Request::class)
+                ->setParameters([['name' => 'method', 'value' => 'GET'], ['name' => 'uri', 'value' => '/some/test']])
+                ->setAliases('some_request_i_dont_want')
+        );
         $compiler->compile();
 
         $stream = $this->config->getFileHandle($compiler);
