@@ -11,6 +11,7 @@ use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\ContainerCompilerConfiguration;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
+use RuntimeException;
 
 class ContainerEmitter extends BaseEmitter
 {
@@ -23,6 +24,11 @@ class ContainerEmitter extends BaseEmitter
     /** @var array<string, ServiceDefinition|false> */
     private array $services = [];
 
+    /**
+     * @var array<string, true>
+     */
+    private array $manuallyAddedServices;
+
     #[Pure]
     public function __construct(BaseConfiguration $config, ContainerCompiler $compiler)
     {
@@ -33,14 +39,16 @@ class ContainerEmitter extends BaseEmitter
      * @param array<string, ServiceDefinition|false> $services
      * @param array<string, bool>                    $separateConstructors
      * @param array<string, string>                  $constructorCache
+     * @param array<string, true>                    $manuallyAddedServices
      *
      * @throws Exception
      */
-    public function emitContainer(array &$services, array &$separateConstructors, array &$constructorCache): void
+    public function emitContainer(array &$services, array &$constructorCache, array &$manuallyAddedServices): void
     {
         $this->services = &$services;
         $this->needsSeparateConstructor = &$separateConstructors;
         $this->constructionMethodCache = &$constructorCache;
+        $this->manuallyAddedServices = &$manuallyAddedServices;
         /** @var ContainerCompilerConfiguration $config */
         $config = $this->config;
         $this->openResultFile($config->getContainerFilepath());
@@ -90,6 +98,10 @@ HEADER
 
             // Cannot provide this service, skip it
             if ($method === null) {
+                if (isset($this->manuallyAddedServices[$className])) {
+                    // TODO: Exception
+                    throw new RuntimeException("Cannot provide Service $className");
+                }
                 continue;
             }
 
@@ -113,7 +125,10 @@ HEADER
         return $availableServices;
     }
 
-    private function generateAutowiredConstructor(string $key, ServiceDefinition $serviceDefinition): ?string
+    /**
+     * @param array<string, true> $resolvingStack
+     */
+    private function generateAutowiredConstructor(string $key, ServiceDefinition $serviceDefinition, array &$resolvingStack = []): ?string
     {
         $className = $serviceDefinition->getClassName();
 
@@ -121,11 +136,16 @@ HEADER
             return $this->constructionMethodCache[$className];
         }
 
+        if (isset($resolvingStack[$className])) {
+            return null;
+        }
+        $resolvingStack[$className] = true;
+
         $parameters = [];
 
         foreach ($serviceDefinition->getParameters() as $parameter) {
             $getter = $parameter->getName() . ': ';
-            $generated = $this->createGetterFromParameter($parameter);
+            $generated = $this->createGetterFromParameter($parameter, $resolvingStack);
             // We cannot inject a parameter. Therefore we cannot construct the service.
             // Return null
             // TODO: Remove the specific parameter from the usedInConstructor list to stop generating the separate method
@@ -151,7 +171,10 @@ HEADER
         return $method;
     }
 
-    private function createGetterFromParameter(ParameterDefinition $parameter): string|null|false
+    /**
+     * @param array<string, true> $resolvingStack
+     */
+    private function createGetterFromParameter(ParameterDefinition $parameter, array &$resolvingStack = []): string|null|false
     {
         if ($parameter->isConstantPrimitive()) {
             return (string) $parameter->getValue();
@@ -168,7 +191,7 @@ HEADER
             $fallback = $parameter->getFallback();
 
             if ($fallback !== null) {
-                $generatedFallback = $this->createGetterFromParameter($fallback);
+                $generatedFallback = $this->createGetterFromParameter($fallback, $resolvingStack);
 
                 if ($generatedFallback !== null && $generatedFallback !== false) {
                     $generated .= ' ?? ' . $generatedFallback;
@@ -180,12 +203,8 @@ HEADER
             $value = $parameter->getValue();
             if (isset($this->services[$value]) && $this->services[$value] !== false) {
                 // Check that we can generate the constructor for this service
-                if ($this->generateAutowiredConstructor($value, $this->services[$value]) !== null) {
-                    $normalizedName = $this->normalizeClassNameToMethodName($value);
-                    $generated = "\$this->instantiatedServices[\"$value\"] ?? \$this->$normalizedName()";
-                    $this->needsSeparateConstructor[$value] = true;
-
-                    return $generated;
+                if (($constructor = $this->generateAutowiredConstructor($value, $this->services[$value], $resolvingStack)) !== null) {
+                    return "\$this->instantiatedServices[\"$value\"] ?? $constructor";
                 }
             }
 
@@ -195,7 +214,7 @@ HEADER
                 return null;
             }
 
-            return $this->createGetterFromParameter($fallback);
+            return $this->createGetterFromParameter($fallback, $resolvingStack);
         } elseif ($parameter->isSkipIfNotFound()) {
             return false;
         }

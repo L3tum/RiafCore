@@ -10,7 +10,6 @@ use Psr\Container\ContainerInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Metrics\Clock\SystemClock;
 use Riaf\Metrics\Timing;
-use Riaf\PsrExtensions\Container\IdNotFoundException;
 use Riaf\TestCases\Container\DefaultBoolParameter;
 use Riaf\TestCases\Container\DefaultFloatParameter;
 use Riaf\TestCases\Container\DefaultIntegerTestCase;
@@ -23,7 +22,6 @@ use Riaf\TestCases\Container\InjectedFloatParameter;
 use Riaf\TestCases\Container\InjectedIntegerParameter;
 use Riaf\TestCases\Container\InjectedServiceFallbackParameter;
 use Riaf\TestCases\Container\InjectedServiceParameter;
-use Riaf\TestCases\Container\InjectedServiceSkipParameter;
 use Riaf\TestCases\Container\InjectedStringParameter;
 use Riaf\TestCases\Container\NamedConstantArrayParameter;
 use Riaf\TestCases\Container\NamedConstantInjectedScalarParameter;
@@ -32,6 +30,8 @@ use Riaf\TestCases\Container\NamedConstantScalarParameter;
 class ContainerCompilerTest extends TestCase
 {
     private static ContainerInterface $container;
+
+    private SampleCompilerConfiguration $config;
 
     public function testImplementsContainerInterface(): void
     {
@@ -125,12 +125,6 @@ class ContainerCompilerTest extends TestCase
         self::assertInstanceOf(DefaultFloatParameter::class, self::$container->get(InjectedServiceFallbackParameter::class)->getCompiler());
     }
 
-    public function testHandlesInjectedServiceSkipParameter(): void
-    {
-        $this->expectException(IdNotFoundException::class);
-        self::assertIsString(self::$container->get(InjectedServiceSkipParameter::class)->getCompiler());
-    }
-
     public function testHandlesNamedConstantDefaultScalarParameter(): void
     {
         self::assertEquals(NamedConstantScalarParameter::DEFAULT, self::$container->get(NamedConstantScalarParameter::class)->getValue());
@@ -178,7 +172,7 @@ class ContainerCompilerTest extends TestCase
             return;
         }
 
-        $config = new class() extends SampleCompilerConfiguration {
+        $this->config = new class() extends SampleCompilerConfiguration {
             private $stream = null;
 
             public function getFileHandle(BaseCompiler $compiler)
@@ -191,11 +185,11 @@ class ContainerCompilerTest extends TestCase
             }
         };
 
-        $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $this->config);
         $compiler->supportsCompilation();
         $compiler->compile();
 
-        $stream = $config->getFileHandle($compiler);
+        $stream = $this->config->getFileHandle($compiler);
         fseek($stream, 0);
         $content = stream_get_contents($stream);
         eval('?>' . $content);

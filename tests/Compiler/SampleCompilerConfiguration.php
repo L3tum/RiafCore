@@ -29,7 +29,6 @@ use Riaf\TestCases\Container\InjectedFloatParameter;
 use Riaf\TestCases\Container\InjectedIntegerParameter;
 use Riaf\TestCases\Container\InjectedServiceFallbackParameter;
 use Riaf\TestCases\Container\InjectedServiceParameter;
-use Riaf\TestCases\Container\InjectedServiceSkipParameter;
 use Riaf\TestCases\Container\InjectedStringParameter;
 use Riaf\TestCases\Container\NamedConstantArrayParameter;
 use Riaf\TestCases\Container\NamedConstantInjectedScalarParameter;
@@ -106,11 +105,6 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
                 ->setParameters([
                     ParameterDefinition::createInjected('compiler', RequestInterface::class)
                         ->withFallback(ParameterDefinition::createInjected('compiler', DefaultFloatParameter::class)),
-                ]),
-            InjectedServiceSkipParameter::class => ServiceDefinition::create(InjectedServiceSkipParameter::class)
-                ->setParameters([
-                    ParameterDefinition::createInjected('compiler', RequestInterface::class)
-                        ->withFallback(ParameterDefinition::createSkipIfNotFound('compiler')),
                 ]),
             NamedConstantScalarParameter::class => NamedConstantScalarParameter::class,
             NamedConstantArrayParameter::class => NamedConstantArrayParameter::class,

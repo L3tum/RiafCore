@@ -32,6 +32,9 @@ class ContainerCompiler extends BaseCompiler
     /** @var array<string, ServiceDefinition|false> */
     private array $services = [];
 
+    /** @var array<string, true> */
+    private array $manuallyAddedServices = [];
+
     private ContainerEmitter $emitter;
 
     #[Pure]
@@ -67,6 +70,9 @@ class ContainerCompiler extends BaseCompiler
             if ($value instanceof ServiceDefinition) {
                 $className = $value->getClassName();
                 $class = $value->getReflectionClass();
+
+                $this->manuallyAddedServices[$className] = true;
+                $this->manuallyAddedServices[$key] = true;
 
                 // If the class does not exist, don't analyze it. Just pump it into the Container
                 if ($class === null) {
@@ -128,6 +134,9 @@ class ContainerCompiler extends BaseCompiler
                 if ($key !== $value && isset($this->services[$value])) {
                     $this->services[$key] = &$this->services[$value];
                 }
+
+                $this->manuallyAddedServices[$value] = true;
+                $this->manuallyAddedServices[$key] = true;
             } elseif ($value instanceof MiddlewareDefinition) {
                 try {
                     $class = $value->getReflectionClass();
@@ -137,6 +146,9 @@ class ContainerCompiler extends BaseCompiler
                     if ($key !== $class->name && isset($this->services[$class->name])) {
                         $this->services[$key] = &$this->services[$class->name];
                     }
+
+                    $this->manuallyAddedServices[$class->name] = true;
+                    $this->manuallyAddedServices[$key] = true;
                 } catch (Throwable) {
                     throw new RuntimeException('Class does not exist!');
                 }
@@ -172,10 +184,11 @@ class ContainerCompiler extends BaseCompiler
             $this->constructionMethodCache['projectRoot'] = '$this->get(\Riaf\Configuration\BaseConfiguration::class)->getProjectRoot()';
         }
 
-        $this->emitter->emitContainer($this->services, $this->needsSeparateConstructor, $this->constructionMethodCache);
+        $this->emitter->emitContainer($this->services, $this->constructionMethodCache, $this->manuallyAddedServices);
         $this->services = [];
         $this->needsSeparateConstructor = [];
         $this->constructionMethodCache = [];
+        $this->manuallyAddedServices = [];
 
         $this->timing->stop(self::class);
 
