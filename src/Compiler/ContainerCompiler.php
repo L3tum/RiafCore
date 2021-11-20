@@ -65,54 +65,7 @@ class ContainerCompiler extends BaseCompiler
         // Then do a first look-over for ServiceDefinitions
         foreach ($this->config->getAdditionalServices() as $key => $value) {
             if ($value instanceof ServiceDefinition) {
-                $className = $value->getClassName();
-                $class = $value->getReflectionClass();
-
-                $this->manuallyAddedServices[$className] = true;
-                $this->manuallyAddedServices[$key] = true;
-
-                // If the class does not exist, don't analyze it. Just pump it into the Container
-                if ($class === null) {
-                    $this->services[$className] = $value;
-                } else {
-                    $this->analyzeClass($class, $value);
-
-                    // If something went wrong during Analysis save the ServiceDefinition anyways
-                    if (!isset($this->services[$className])) {
-                        $this->services[$className] = $value;
-                    }
-                }
-
-                if ($key !== $className) {
-                    $this->services[$key] = &$this->services[$className];
-                }
-
-                foreach ($value->getAliases() as $alias) {
-                    $this->services[$alias] = &$this->services[$key];
-                }
-
-                // Go over the defined parameters
-                // And for each parameter:
-                //      1. Check if it has been recorded as a service
-                //      2. Add the parameter to the list for separate methods
-                //      3. Check the fallback
-                /**
-                 * @psalm-suppress PossiblyFalseReference Explicitly set above...
-                 * @phpstan-ignore-next-line Explicitly set above, why is this so hard you stupid static analyzers
-                 */
-                $parameters = $this->services[$className]->getParameters();
-                foreach ($parameters as $parameter) {
-                    while ($parameter !== null) {
-                        if ($parameter->isInjected()) {
-                            if (class_exists($parameter->getValue())) {
-                                /** @noinspection PhpUnhandledExceptionInspection */
-                                $this->analyzeClass(new ReflectionClass($parameter->getValue()));
-                            }
-                        }
-
-                        $parameter = $parameter->getFallback();
-                    }
-                }
+                $this->analyzeServiceDefinition($key, $value);
             }
         }
 
@@ -191,8 +144,6 @@ class ContainerCompiler extends BaseCompiler
 
     /**
      * @param ReflectionClass<object> $class
-     *
-     * @throws ReflectionException
      */
     private function analyzeClass(ReflectionClass $class, ?ServiceDefinition $predefinedDefinition = null): void
     {
@@ -293,5 +244,62 @@ class ContainerCompiler extends BaseCompiler
 
             $definition->setParameters($parameters);
         }
+    }
+
+    private function analyzeServiceDefinition(string $key, ServiceDefinition $value): void
+    {
+        $className = $value->getClassName();
+        $class = $value->getReflectionClass();
+
+        $this->manuallyAddedServices[$className] = true;
+        $this->manuallyAddedServices[$key] = true;
+
+        // If the class does not exist, don't analyze it. Just pump it into the Container
+        if ($class === null) {
+            $this->services[$className] = $value;
+        } else {
+            $this->analyzeClass($class, $value);
+
+            // If something went wrong during Analysis save the ServiceDefinition anyways
+            if (!isset($this->services[$className])) {
+                $this->services[$className] = $value;
+            }
+        }
+
+        if ($key !== $className) {
+            $this->services[$key] = &$this->services[$className];
+        }
+
+        foreach ($value->getAliases() as $alias) {
+            $this->services[$alias] = &$this->services[$key];
+        }
+
+        // Go over the defined parameters
+        // And for each parameter:
+        //      1. Check if it has been recorded as a service
+        //      2. Add the parameter to the list for separate methods
+        //      3. Check the fallback
+        /**
+         * @psalm-suppress PossiblyFalseReference Explicitly set above...
+         * @phpstan-ignore-next-line Explicitly set above, why is this so hard you stupid static analyzers
+         */
+        $parameters = $this->services[$className]->getParameters();
+        foreach ($parameters as $parameter) {
+            while ($parameter !== null) {
+                if ($parameter->isInjected()) {
+                    if (class_exists($parameter->getValue())) {
+                        /** @noinspection PhpUnhandledExceptionInspection */
+                        $this->analyzeClass(new ReflectionClass($parameter->getValue()));
+                    }
+                }
+
+                $parameter = $parameter->getFallback();
+            }
+        }
+    }
+
+    public function addService(string $key, ServiceDefinition $definition): void
+    {
+        $this->analyzeServiceDefinition($key, $definition);
     }
 }

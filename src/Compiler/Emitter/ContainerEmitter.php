@@ -130,6 +130,10 @@ HEADER
             return $this->constructionMethodCache[$className];
         }
 
+        if (!class_exists($className)) {
+            throw new RuntimeException("Cannot provide Service $className that does not exist!");
+        }
+
         if (isset($resolvingStack[$className])) {
             return null;
         }
