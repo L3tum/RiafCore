@@ -26,9 +26,6 @@ class ContainerCompiler extends BaseCompiler
     /** @var string[] */
     private array $constructionMethodCache = [];
 
-    /** @var array<string, bool> */
-    private array $needsSeparateConstructor = [];
-
     /** @var array<string, ServiceDefinition|false> */
     private array $services = [];
 
@@ -111,8 +108,6 @@ class ContainerCompiler extends BaseCompiler
                                 /** @noinspection PhpUnhandledExceptionInspection */
                                 $this->analyzeClass(new ReflectionClass($parameter->getValue()));
                             }
-
-                            $this->needsSeparateConstructor[$parameter->getValue()] = true;
                         }
 
                         $parameter = $parameter->getFallback();
@@ -186,7 +181,6 @@ class ContainerCompiler extends BaseCompiler
 
         $this->emitter->emitContainer($this->services, $this->constructionMethodCache, $this->manuallyAddedServices);
         $this->services = [];
-        $this->needsSeparateConstructor = [];
         $this->constructionMethodCache = [];
         $this->manuallyAddedServices = [];
 
@@ -268,7 +262,6 @@ class ContainerCompiler extends BaseCompiler
 
                 if ($type !== null && $type->name !== $className) {
                     $this->analyzeClass($type);
-                    $this->needsSeparateConstructor[$type->name] = true;
                     $param = $param->withFallback(ParameterDefinition::createInjected($parameter->name, $type->name));
                 }
 
