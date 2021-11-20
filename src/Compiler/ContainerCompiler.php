@@ -193,9 +193,35 @@ class ContainerCompiler extends BaseCompiler
             $extensionClass = $extensionClass->getParentClass();
         }
 
+        $constructor = null;
+
+        if ($predefinedDefinition !== null && $predefinedDefinition->getStaticFactoryMethod() !== null && $predefinedDefinition->getStaticFactoryClass() !== null) {
+            $factoryClass = $predefinedDefinition->getStaticFactoryClass();
+            $factoryMethod = $predefinedDefinition->getStaticFactoryMethod();
+            if (!class_exists($factoryClass)) {
+                throw new RuntimeException("Class not found for factory method $factoryClass");
+            }
+
+            $factoryClassRef = new ReflectionClass($factoryClass);
+
+            if (!$factoryClassRef->hasMethod($factoryMethod)) {
+                throw new RuntimeException("Method {$factoryMethod} not found on class {$factoryClass}");
+            }
+
+            $factoryMethodRef = $factoryClassRef->getMethod($factoryMethod);
+
+            if (!$factoryMethodRef->isPublic() || $factoryMethodRef->isAbstract() || !$factoryMethodRef->isStatic()) {
+                throw new RuntimeException("Cannot call method {$factoryMethod} on class {$factoryClass}");
+            }
+
+            $constructor = $factoryMethodRef;
+            $definition->setStaticFactoryMethod($factoryClass, $factoryMethod);
+        } else {
+            $constructor = $class->getConstructor();
+        }
+
         // Check for Constructor Params that we may not have recorded yet
         // And build up parameter injection tree
-        $constructor = $class->getConstructor();
         if ($constructor !== null) {
             $parameters = [];
             foreach ($constructor->getParameters() as $parameter) {

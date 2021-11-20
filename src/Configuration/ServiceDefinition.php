@@ -15,7 +15,9 @@ final class ServiceDefinition
         private array $parameters = [],
         /** @var string[] $aliases */
         private array $aliases = [],
-        private bool $singleton = true
+        private bool $singleton = true,
+        private ?string $staticFactoryClass = null,
+        private ?string $staticFactoryMethod = null
     ) {
     }
 
@@ -109,8 +111,33 @@ final class ServiceDefinition
         return $this->className;
     }
 
+    public function setSingleton(bool $singleton): self
+    {
+        $this->singleton = $singleton;
+
+        return $this;
+    }
+
     public function isSingleton(): bool
     {
         return $this->singleton;
+    }
+
+    public function setStaticFactoryMethod(string $staticFactoryClass, string $staticFactoryMethod): self
+    {
+        $this->staticFactoryClass = $staticFactoryClass;
+        $this->staticFactoryMethod = $staticFactoryMethod;
+
+        return $this;
+    }
+
+    public function getStaticFactoryMethod(): ?string
+    {
+        return $this->staticFactoryMethod;
+    }
+
+    public function getStaticFactoryClass(): ?string
+    {
+        return $this->staticFactoryClass;
     }
 }
