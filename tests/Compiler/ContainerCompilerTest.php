@@ -20,6 +20,9 @@ use Riaf\TestCases\Container\DefaultStringParameterTestCase;
 use Riaf\TestCases\Container\EnvParameter;
 use Riaf\TestCases\Container\EnvWithDefaultFallbackParameter;
 use Riaf\TestCases\Container\EnvWithFallbackParameter;
+use Riaf\TestCases\Container\FactoryMethodContainerParameter;
+use Riaf\TestCases\Container\FactoryMethodNoParameters;
+use Riaf\TestCases\Container\FactoryMethodWithParameters;
 use Riaf\TestCases\Container\InjectedBoolParameter;
 use Riaf\TestCases\Container\InjectedFloatParameter;
 use Riaf\TestCases\Container\InjectedIntegerParameter;
@@ -166,6 +169,21 @@ class ContainerCompilerTest extends TestCase
     public function testHandlesAliases(): void
     {
         self::assertEquals('/some/test', self::$container->get('some_request_i_dont_want')->getUri()->getPath());
+    }
+
+    public function testHandlesFactoryMethodNoParameters(): void
+    {
+        self::assertEquals('Factory', self::$container->get(FactoryMethodNoParameters::class)->creator);
+    }
+
+    public function testHandlesFactoryMethodWithContainerParameter(): void
+    {
+        self::assertEquals('Factory', self::$container->get(FactoryMethodContainerParameter::class)->creator);
+    }
+
+    public function testHandlesFactoryMethodWithParameters(): void
+    {
+        self::assertEquals('Factory', self::$container->get(FactoryMethodWithParameters::class)->creator);
     }
 
     // TODO: Array Parsing Tests?

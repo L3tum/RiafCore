@@ -169,7 +169,11 @@ HEADER
             $method = '';
         }
 
-        $method .= "new \\$className($parameterString)";
+        if ($serviceDefinition->getStaticFactoryClass() !== null && $serviceDefinition->getStaticFactoryMethod() !== null) {
+            $method .= "\\{$serviceDefinition->getStaticFactoryClass()}::{$serviceDefinition->getStaticFactoryMethod()}($parameterString)";
+        } else {
+            $method .= "new \\$className($parameterString)";
+        }
 
         return $method;
     }

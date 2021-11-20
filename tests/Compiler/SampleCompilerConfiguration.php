@@ -23,6 +23,9 @@ use Riaf\TestCases\Container\DefaultStringParameterTestCase;
 use Riaf\TestCases\Container\EnvParameter;
 use Riaf\TestCases\Container\EnvWithDefaultFallbackParameter;
 use Riaf\TestCases\Container\EnvWithFallbackParameter;
+use Riaf\TestCases\Container\FactoryMethodContainerParameter;
+use Riaf\TestCases\Container\FactoryMethodNoParameters;
+use Riaf\TestCases\Container\FactoryMethodWithParameters;
 use Riaf\TestCases\Container\InjectedBoolParameter;
 use Riaf\TestCases\Container\InjectedFloatParameter;
 use Riaf\TestCases\Container\InjectedIntegerParameter;
@@ -117,6 +120,12 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
                 ->setParameters([
                     ParameterDefinition::createBool('value', true),
                 ]),
+            FactoryMethodNoParameters::class => ServiceDefinition::create(FactoryMethodNoParameters::class)
+                ->setStaticFactoryMethod(FactoryMethodNoParameters::class, 'create'),
+            FactoryMethodContainerParameter::class => ServiceDefinition::create(FactoryMethodContainerParameter::class)
+                ->setStaticFactoryMethod(FactoryMethodContainerParameter::class, 'create'),
+            FactoryMethodWithParameters::class => ServiceDefinition::create(FactoryMethodWithParameters::class)
+                ->setStaticFactoryMethod(FactoryMethodWithParameters::class, 'create'),
         ];
     }
 
