@@ -43,10 +43,13 @@ abstract class AbstractCore
     protected function fetchContainer(): void
     {
         if ($this->config instanceof ContainerCompilerConfiguration && $this->container === null) {
-            $containerClass = '\\' . $this->config->getContainerNamespace() . '\\Container';
+            $containerClass = $this->config->getContainerNamespace() . '\\Container';
+            if (!class_exists($containerClass)) {
+                @include_once $this->config->getProjectRoot() . $this->config->getContainerFilepath();
+            }
             if (class_exists($containerClass)) {
                 /** @psalm-suppress PropertyTypeCoercion Can only be Container */
-                $this->container = new $containerClass();
+                $this->container = new ('\\' . $containerClass)();
             }
         }
     }
@@ -54,10 +57,13 @@ abstract class AbstractCore
     protected function fetchMiddlewareDispatcher(): void
     {
         if ($this->config instanceof MiddlewareDispatcherCompilerConfiguration && $this->container !== null) {
-            $middlewareDispatcherClass = '\\' . $this->config->getMiddlewareDispatcherNamespace() . '\\MiddlewareDispatcher';
+            $middlewareDispatcherClass = $this->config->getMiddlewareDispatcherNamespace() . '\\MiddlewareDispatcher';
+            if (!class_exists($middlewareDispatcherClass)) {
+                @include_once $this->config->getProjectRoot() . $this->config->getMiddlewareDispatcherFilepath();
+            }
             if (class_exists($middlewareDispatcherClass)) {
                 /** @psalm-suppress PropertyTypeCoercion Can only be RequestHandlerInterface */
-                $this->requestHandler = new $middlewareDispatcherClass($this->container);
+                $this->requestHandler = new ('\\' . $middlewareDispatcherClass)($this->container);
             }
         }
     }
@@ -65,10 +71,13 @@ abstract class AbstractCore
     protected function fetchRouter(): void
     {
         if ($this->config instanceof RouterCompilerConfiguration && $this->requestHandler === null && $this->container !== null) {
-            $routerClass = '\\' . $this->config->getRouterNamespace() . '\\Router';
+            $routerClass = $this->config->getRouterNamespace() . '\\Router';
+            if (!class_exists($routerClass)) {
+                @include_once $this->config->getProjectRoot() . $this->config->getRouterFilepath();
+            }
             if (class_exists($routerClass)) {
                 /** @psalm-suppress PropertyTypeCoercion Can only be RequestHandlerInterface */
-                $this->requestHandler = new $routerClass($this->container);
+                $this->requestHandler = new ('\\' . $routerClass)($this->container);
             }
         }
     }

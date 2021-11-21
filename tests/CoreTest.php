@@ -52,6 +52,26 @@ class CoreTest extends TestCase
             {
                 return 'NotFound';
             }
+
+            public function getContainerFilepath(): string
+            {
+                return 'NotFound';
+            }
+
+            public function getRouterFilepath(): string
+            {
+                return 'NotFound';
+            }
+
+            public function getEventDispatcherFilepath(): string
+            {
+                return 'NotFound';
+            }
+
+            public function getMiddlewareDispatcherFilepath(): string
+            {
+                return 'NotFound';
+            }
         };
 
         $this->middlewareDispatcher = $this->createMock(RequestHandlerInterface::class);
