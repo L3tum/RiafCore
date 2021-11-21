@@ -140,9 +140,10 @@ HEADER
         $resolvingStack[$className] = true;
 
         $parameters = [];
+        $parameterNames = [];
+        $skippedAnyParameter = false;
 
         foreach ($serviceDefinition->getParameters() as $parameter) {
-            $getter = $parameter->getName() . ': ';
             $generated = $this->createGetterFromParameter($parameter, $resolvingStack);
             // We cannot inject a parameter. Therefore we cannot construct the service.
             // Return null
@@ -150,9 +151,19 @@ HEADER
                 return null;
             } elseif ($generated === null) {
                 // Skip parameter if it can't be injected and isn't important
+                $skippedAnyParameter = true;
                 continue;
             }
-            $parameters[] = $getter . $generated;
+            $parameters[] = $generated;
+            $parameterNames[] = $parameter->getName();
+        }
+
+        // If we skipped any parameter, then we need to explicitly set them by name
+        // Else we can avoid that 0,005μs and 0,2kb overhead
+        if ($skippedAnyParameter) {
+            foreach ($parameters as $key => $value) {
+                $parameters[$key] = $parameterNames[$key] . ': ' . $value;
+            }
         }
 
         $parameterString = implode(', ', $parameters);
