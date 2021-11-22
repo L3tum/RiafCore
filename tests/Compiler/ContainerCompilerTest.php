@@ -11,8 +11,6 @@ use Psr\Container\ContainerInterface;
 use Psr\Http\Message\RequestInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Configuration\ServiceDefinition;
-use Riaf\Metrics\Clock\SystemClock;
-use Riaf\Metrics\Timing;
 use Riaf\TestCases\Container\DefaultBoolParameter;
 use Riaf\TestCases\Container\DefaultFloatParameter;
 use Riaf\TestCases\Container\DefaultIntegerTestCase;
@@ -211,7 +209,7 @@ class ContainerCompilerTest extends TestCase
             }
         };
 
-        $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $this->config);
+        $compiler = new ContainerCompiler($this->config);
         $compiler->supportsCompilation();
         $compiler->addService(
             RequestInterface::class,

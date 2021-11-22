@@ -10,9 +10,6 @@ use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Server\RequestHandlerInterface;
-use Riaf\Compiler\Analyzer\StandardAnalyzer;
-use Riaf\Metrics\Clock\SystemClock;
-use Riaf\Metrics\Timing;
 use Riaf\TestCases\Middleware\NormalMiddleware;
 use Riaf\TestCases\Middleware\PriorityMiddleware;
 
@@ -80,7 +77,7 @@ class MiddlewareDispatcherCompilerTest extends TestCase
             }
         };
 
-        $compiler = new MiddlewareDispatcherCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new MiddlewareDispatcherCompiler($config);
         $compiler->supportsCompilation();
         $compiler->compile();
 

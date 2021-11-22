@@ -16,8 +16,6 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use ReflectionClass;
 use Riaf\Compiler\Analyzer\AnalyzerInterface;
-use Riaf\Metrics\Clock\SystemClock;
-use Riaf\Metrics\Timing;
 use Riaf\PsrExtensions\Middleware\Middleware;
 use Riaf\Routing\Route;
 use Riaf\TestCases\Router\StaticFunction;
@@ -301,7 +299,7 @@ class RouterCompilerTest extends TestCase
 
         $analyzer->expects(self::once())->method('getUsedClasses')->with($config->getProjectRoot())->willReturn(new ArrayIterator([new ReflectionClass($mockingClass), new ReflectionClass(StaticFunction::class)]));
 
-        $compiler = new RouterCompiler($analyzer, new Timing(new SystemClock()), $config);
+        $compiler = new RouterCompiler($config, $analyzer);
         $compiler->addRoute(new Route('/manually/added/route'), 'manually::added');
         $compiler->supportsCompilation();
         $compiler->compile();

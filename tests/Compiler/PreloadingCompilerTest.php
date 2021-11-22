@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use PHPUnit\Framework\TestCase;
-use Riaf\Compiler\Analyzer\StandardAnalyzer;
-use Riaf\Metrics\Clock\SystemClock;
-use Riaf\Metrics\Timing;
 
 class PreloadingCompilerTest extends TestCase
 {
@@ -71,7 +68,7 @@ class PreloadingCompilerTest extends TestCase
             }
         };
 
-        $this->compiler = new PreloadingCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $this->config);
+        $this->compiler = new PreloadingCompiler($this->config);
         $this->compiler->compile();
         $stream = $this->config->getFileHandle($this->compiler);
         fseek($stream, 0);
@@ -108,6 +105,6 @@ class PreloadingCompilerTest extends TestCase
             }
         };
 
-        $this->compiler = new PreloadingCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $this->config);
+        $this->compiler = new PreloadingCompiler($this->config);
     }
 }

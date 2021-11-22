@@ -7,9 +7,6 @@ namespace Riaf\Compiler;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
-use Riaf\Compiler\Analyzer\StandardAnalyzer;
-use Riaf\Metrics\Clock\SystemClock;
-use Riaf\Metrics\Timing;
 use Riaf\TestCases\EventDispatcher\EventListenerEventNotExisting;
 use Riaf\TestCases\EventDispatcher\EventListenerMethodNotExisting;
 use Riaf\TestCases\EventDispatcher\MultiEventListener;
@@ -131,7 +128,7 @@ class EventDispatcherTest extends TestCase
             }
         };
 
-        $compiler = new EventDispatcherCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new EventDispatcherCompiler($config);
 
         $this->expectException(RuntimeException::class);
         $compiler->compile();
@@ -157,7 +154,7 @@ class EventDispatcherTest extends TestCase
             }
         };
 
-        $compiler = new EventDispatcherCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new EventDispatcherCompiler($config);
 
         $this->expectException(RuntimeException::class);
         $compiler->compile();
@@ -183,7 +180,7 @@ class EventDispatcherTest extends TestCase
             }
         };
 
-        $compiler = new EventDispatcherCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new EventDispatcherCompiler($config);
 
         $this->expectException(RuntimeException::class);
         $compiler->compile();
@@ -209,7 +206,7 @@ class EventDispatcherTest extends TestCase
             }
         };
 
-        $compiler = new EventDispatcherCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new EventDispatcherCompiler($config);
 
         $this->expectException(RuntimeException::class);
         $compiler->compile();
@@ -235,7 +232,7 @@ class EventDispatcherTest extends TestCase
             }
         };
 
-        $compiler = new EventDispatcherCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new EventDispatcherCompiler($config);
 
         $this->expectException(RuntimeException::class);
         $compiler->compile();
@@ -266,7 +263,7 @@ class EventDispatcherTest extends TestCase
             }
         };
 
-        $compiler = new EventDispatcherCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new EventDispatcherCompiler($config);
         $compiler->supportsCompilation();
         $compiler->compile();
 

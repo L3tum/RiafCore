@@ -6,11 +6,8 @@ namespace Riaf\Compiler;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\RequestInterface;
-use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
-use Riaf\Metrics\Clock\SystemClock;
-use Riaf\Metrics\Timing;
 use Riaf\TestCases\Container\IndirectSelfDependencyOne;
 use Riaf\TestCases\Container\InjectedServiceSkipParameter;
 use Riaf\TestCases\Container\SelfDependency;
@@ -43,7 +40,7 @@ class ContainerCompilerErrorCasesTest extends TestCase
                 ];
             }
         };
-        $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new ContainerCompiler($config);
         $this->expectException(RuntimeException::class);
         $compiler->compile();
     }
@@ -69,7 +66,7 @@ class ContainerCompilerErrorCasesTest extends TestCase
                 ];
             }
         };
-        $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new ContainerCompiler($config);
         $this->expectException(RuntimeException::class);
         $compiler->compile();
     }
@@ -95,7 +92,7 @@ class ContainerCompilerErrorCasesTest extends TestCase
                 ];
             }
         };
-        $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new ContainerCompiler($config);
         $this->expectException(RuntimeException::class);
         $compiler->compile();
     }
@@ -114,7 +111,7 @@ class ContainerCompilerErrorCasesTest extends TestCase
                 return $this->stream;
             }
         };
-        $compiler = new ContainerCompiler(new StandardAnalyzer(new Timing(new SystemClock())), new Timing(new SystemClock()), $config);
+        $compiler = new ContainerCompiler($config);
         $compiler->addService('doesnotexist', ServiceDefinition::create('doesnotexist'));
         $this->expectException(RuntimeException::class);
         $compiler->compile();
