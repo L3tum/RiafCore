@@ -26,6 +26,22 @@ abstract class BaseController
      */
     protected function json(string|array|object $data, int $statusCode = 200, ?string $statusText = null, array $headers = []): ResponseInterface
     {
+        if (!isset($headers['Content-Type'])) {
+            $headers['Content-Type'] = 'application/json';
+        }
+
+        return $this->respond($data, $statusCode, $statusText, $headers);
+    }
+
+    /**
+     * @param string|object|mixed[]       $data
+     * @param array<string, string|array> $headers
+     *
+     * @throws JsonException
+     * @noinspection PhpPluralMixedCanBeReplacedWithArrayInspection
+     */
+    protected function respond(string|array|object $data, int $statusCode = 200, ?string $statusText = null, array $headers = []): ResponseInterface
+    {
         if ($data instanceof StreamInterface) {
             $body = $data;
         } else {

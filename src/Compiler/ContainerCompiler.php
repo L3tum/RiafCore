@@ -14,6 +14,8 @@ use Riaf\Configuration\ContainerCompilerConfiguration;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
+use Riaf\ResponseEmitter\ResponseEmitterInterface;
+use Riaf\ResponseEmitter\StandardResponseEmitter;
 use RuntimeException;
 use Throwable;
 
@@ -69,7 +71,7 @@ class ContainerCompiler extends BaseCompiler
 
                 // Add the key as a name for the service
                 if ($key !== $value && isset($this->services[$value])) {
-                    $this->services[$key] = &$this->services[$value];
+                    $this->services[$key] = $this->services[$value];
                 }
 
                 $this->manuallyAddedServices[$value] = true;
@@ -81,7 +83,7 @@ class ContainerCompiler extends BaseCompiler
 
                     // Add the key as a name for the service
                     if ($key !== $class->name && isset($this->services[$class->name])) {
-                        $this->services[$key] = &$this->services[$class->name];
+                        $this->services[$key] = $this->services[$class->name];
                     }
 
                     $this->manuallyAddedServices[$class->name] = true;
@@ -148,6 +150,13 @@ class ContainerCompiler extends BaseCompiler
             $this->logger->debug('Cannot add ServerRequestCreator to Container');
         }
 
+        // Add StandardResponseEmitter
+        if (!isset($this->services[ResponseEmitterInterface::class])) {
+            $this->analyzeClass(new ReflectionClass(StandardResponseEmitter::class));
+        } else {
+            $this->logger->debug('Response Emitter already defined');
+        }
+
         // Add some constants to Container
         if (!isset($this->services['coreDebug'])) {
             $this->services['coreDebug'] = new ServiceDefinition('coreDebug');
@@ -196,7 +205,7 @@ class ContainerCompiler extends BaseCompiler
             $interfaceName = $interface->getName();
 
             if (!isset($this->services[$interfaceName])) {
-                $this->services[$interfaceName] = &$this->services[$className];
+                $this->services[$interfaceName] = $this->services[$className];
             } else {
                 $this->services[$interfaceName] = false;
             }
@@ -210,7 +219,7 @@ class ContainerCompiler extends BaseCompiler
 
             if ($extensionClass->isInterface() || $extensionClass->isAbstract()) {
                 if (!isset($this->services[$extensionClassName])) {
-                    $this->services[$extensionClassName] = &$this->services[$className];
+                    $this->services[$extensionClassName] = $this->services[$className];
                 } else {
                     $this->services[$extensionClassName] = false;
                 }
@@ -319,11 +328,11 @@ class ContainerCompiler extends BaseCompiler
         }
 
         if ($key !== $className) {
-            $this->services[$key] = &$this->services[$className];
+            $this->services[$key] = $this->services[$className];
         }
 
         foreach ($value->getAliases() as $alias) {
-            $this->services[$alias] = &$this->services[$key];
+            $this->services[$alias] = $this->services[$key];
         }
 
         // Go over the defined parameters
