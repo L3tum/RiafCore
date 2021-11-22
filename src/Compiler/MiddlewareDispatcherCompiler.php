@@ -24,9 +24,9 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
     private MiddlewareDispatcherEmitter $emitter;
 
     #[Pure]
-    public function __construct(AnalyzerInterface $analyzer, Timing $timing, BaseConfiguration $config)
+    public function __construct(BaseConfiguration $config, ?AnalyzerInterface $analyzer = null, ?Timing $timing = null)
     {
-        parent::__construct($analyzer, $timing, $config);
+        parent::__construct($config, $analyzer, $timing);
         $this->emitter = new MiddlewareDispatcherEmitter($config, $this);
     }
 
