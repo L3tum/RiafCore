@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use JetBrains\PhpStorm\Pure;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use ReflectionClass;
 use ReflectionException;
 use ReflectionNamedType;
@@ -21,11 +23,14 @@ abstract class BaseCompiler
 
     protected Timing $timing;
 
+    protected LoggerInterface $logger;
+
     #[Pure]
-    public function __construct(protected BaseConfiguration $config, ?AnalyzerInterface $analyzer = null, ?Timing $timing = null)
+    public function __construct(protected BaseConfiguration $config, ?AnalyzerInterface $analyzer = null, ?Timing $timing = null, ?LoggerInterface $logger = null)
     {
         $this->timing = $timing ?? new Timing(new SystemClock());
         $this->analyzer = $analyzer ?? new StandardAnalyzer($this->timing);
+        $this->logger = $logger ?? new NullLogger();
     }
 
     abstract public function compile(): bool;

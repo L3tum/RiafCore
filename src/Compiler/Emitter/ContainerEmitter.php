@@ -5,9 +5,6 @@ declare(strict_types=1);
 namespace Riaf\Compiler\Emitter;
 
 use Exception;
-use JetBrains\PhpStorm\Pure;
-use Riaf\Compiler\ContainerCompiler;
-use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\ContainerCompilerConfiguration;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
@@ -25,12 +22,6 @@ class ContainerEmitter extends BaseEmitter
      * @var array<string, true>
      */
     private array $manuallyAddedServices;
-
-    #[Pure]
-    public function __construct(BaseConfiguration $config, ContainerCompiler $compiler)
-    {
-        parent::__construct($config, $compiler);
-    }
 
     /**
      * @param array<string, ServiceDefinition|false> $services
@@ -135,6 +126,8 @@ HEADER
         }
 
         if (isset($resolvingStack[$className])) {
+            $this->logger->info("$className contains a cyclic dependency");
+
             return null;
         }
         $resolvingStack[$className] = true;
@@ -148,6 +141,9 @@ HEADER
             // We cannot inject a parameter. Therefore we cannot construct the service.
             // Return null
             if ($generated === false) {
+                $this->logger->info("Could not generate constructor for $className because of {$parameter->getName()}");
+                unset($resolvingStack[$className]);
+
                 return null;
             } elseif ($generated === null) {
                 // Skip parameter if it can't be injected and isn't important
@@ -185,6 +181,8 @@ HEADER
         } else {
             $method .= "new \\$className($parameterString)";
         }
+
+        unset($resolvingStack[$className]);
 
         return $method;
     }

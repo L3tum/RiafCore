@@ -5,13 +5,9 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use Generator;
-use JetBrains\PhpStorm\Pure;
 use ReflectionClass;
-use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Compiler\Emitter\PreloadingEmitter;
-use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\PreloadCompilerConfiguration;
-use Riaf\Metrics\Timing;
 
 class PreloadingCompiler extends BaseCompiler
 {
@@ -20,14 +16,7 @@ class PreloadingCompiler extends BaseCompiler
      */
     private array $preloadedFiles = [];
 
-    private PreloadingEmitter $emitter;
-
-    #[Pure]
-    public function __construct(BaseConfiguration $config, ?AnalyzerInterface $analyzer = null, ?Timing $timing = null)
-    {
-        parent::__construct($config, $analyzer, $timing);
-        $this->emitter = new PreloadingEmitter($config, $this);
-    }
+    private ?PreloadingEmitter $emitter = null;
 
     public function supportsCompilation(): bool
     {
@@ -37,6 +26,7 @@ class PreloadingCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
+        $this->emitter = new PreloadingEmitter($this->config, $this, $this->logger);
         /** @var PreloadCompilerConfiguration $config */
         $config = $this->config;
 

@@ -6,18 +6,14 @@ namespace Riaf\Compiler;
 
 use Attribute;
 use Exception;
-use JetBrains\PhpStorm\Pure;
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
-use ReflectionException;
-use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Compiler\Emitter\ContainerEmitter;
 use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\ContainerCompilerConfiguration;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
-use Riaf\Metrics\Timing;
 use RuntimeException;
 use Throwable;
 
@@ -32,14 +28,7 @@ class ContainerCompiler extends BaseCompiler
     /** @var array<string, true> */
     private array $manuallyAddedServices = [];
 
-    private ContainerEmitter $emitter;
-
-    #[Pure]
-    public function __construct(BaseConfiguration $config, ?AnalyzerInterface $analyzer = null, ?Timing $timing = null)
-    {
-        parent::__construct($config, $analyzer, $timing);
-        $this->emitter = new ContainerEmitter($config, $this);
-    }
+    private ?ContainerEmitter $emitter = null;
 
     public function supportsCompilation(): bool
     {
@@ -47,12 +36,12 @@ class ContainerCompiler extends BaseCompiler
     }
 
     /**
-     * @throws ReflectionException
      * @throws Exception
      */
     public function compile(): bool
     {
         $this->timing->start(self::class);
+        $this->emitter = new ContainerEmitter($this->config, $this, $this->logger);
         /** @var ContainerCompilerConfiguration $config */
         $config = $this->config;
 
@@ -109,6 +98,8 @@ class ContainerCompiler extends BaseCompiler
             $this->services[$ownClass] = new ServiceDefinition($ownClass);
             $this->services[ContainerInterface::class] = $this->services[$ownClass];
             $this->constructionMethodCache[$ownClass] = '$this';
+        } else {
+            $this->logger->debug('Container is already defined, cannot add itself');
         }
 
         // Add current Config to Container
@@ -120,6 +111,41 @@ class ContainerCompiler extends BaseCompiler
             $this->services[$configClass] = new ServiceDefinition($configClass);
             $this->services[BaseConfiguration::class] = $this->services[$configClass];
             $this->constructionMethodCache[$configClass] = "new \\$configClass()";
+        } else {
+            $this->logger->debug('Cannot add Config to Container');
+        }
+
+        // Add Psr17Factory if possible
+        if (
+            class_exists("Nyholm\Psr7\Factory\Psr17Factory")
+            && !isset($this->services["Psr\Http\Message\ServerRequestFactoryInterface"])
+            && !isset($this->services["Psr\Http\Message\RequestFactoryInterface"])
+            && !isset($this->services["Psr\Http\Message\UriFactoryInterface"])
+            && !isset($this->services["Psr\Http\Message\ResponseFactoryInterface"])
+            && !isset($this->services["Psr\Http\Message\StreamFactoryInterface"])
+            && !isset($this->services["Psr\Http\Message\UploadedFileFactoryInterface"])
+        ) {
+            /** @noinspection PhpFullyQualifiedNameUsageInspection */
+            $this->analyzeClass(new ReflectionClass(\Nyholm\Psr7\Factory\Psr17Factory::class));
+        } else {
+            $this->logger->debug('Psr17Factory is not defined');
+        }
+
+        // Add ServerRequestCreator if possible
+        if (
+            class_exists("Nyholm\Psr7Server\ServerRequestCreator")
+            && !isset($this->services["Nyholm\Psr7Server\ServerRequestCreator"])
+            && isset($this->services["Psr\Http\Message\ServerRequestFactoryInterface"])
+            && isset($this->services["Psr\Http\Message\RequestFactoryInterface"])
+            && isset($this->services["Psr\Http\Message\UriFactoryInterface"])
+            && isset($this->services["Psr\Http\Message\ResponseFactoryInterface"])
+            && isset($this->services["Psr\Http\Message\StreamFactoryInterface"])
+            && isset($this->services["Psr\Http\Message\UploadedFileFactoryInterface"])
+        ) {
+            /** @noinspection PhpFullyQualifiedNameUsageInspection */
+            $this->analyzeClass(new ReflectionClass(\Nyholm\Psr7Server\ServerRequestCreator::class));
+        } else {
+            $this->logger->debug('Cannot add ServerRequestCreator to Container');
         }
 
         // Add some constants to Container

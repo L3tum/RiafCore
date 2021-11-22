@@ -4,16 +4,12 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler;
 
-use JetBrains\PhpStorm\Pure;
 use Psr\Http\Server\MiddlewareInterface;
 use ReflectionClass;
-use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Compiler\Emitter\MiddlewareDispatcherEmitter;
-use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\MiddlewareDispatcherCompilerConfiguration;
 use Riaf\Configuration\ServiceDefinition;
-use Riaf\Metrics\Timing;
 use Riaf\PsrExtensions\Middleware\Middleware;
 
 class MiddlewareDispatcherCompiler extends BaseCompiler
@@ -21,18 +17,12 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
     /** @var array<string, bool> */
     private array $recordedMiddlewares = [];
 
-    private MiddlewareDispatcherEmitter $emitter;
-
-    #[Pure]
-    public function __construct(BaseConfiguration $config, ?AnalyzerInterface $analyzer = null, ?Timing $timing = null)
-    {
-        parent::__construct($config, $analyzer, $timing);
-        $this->emitter = new MiddlewareDispatcherEmitter($config, $this);
-    }
+    private ?MiddlewareDispatcherEmitter $emitter = null;
 
     public function compile(): bool
     {
         $this->timing->start(self::class);
+        $this->emitter = new MiddlewareDispatcherEmitter($this->config, $this, $this->logger);
         /** @var MiddlewareDispatcherCompilerConfiguration $config */
         $config = $this->config;
 

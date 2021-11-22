@@ -5,20 +5,11 @@ declare(strict_types=1);
 namespace Riaf\Compiler\Emitter;
 
 use Exception;
-use JetBrains\PhpStorm\Pure;
 use Riaf\Compiler\Router\StaticRoute;
-use Riaf\Compiler\RouterCompiler;
-use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\RouterCompilerConfiguration;
 
 class RouterEmitter extends BaseEmitter
 {
-    #[Pure]
-    public function __construct(BaseConfiguration $config, RouterCompiler $compiler)
-    {
-        parent::__construct($config, $compiler);
-    }
-
     /**
      * @param array<string, array<string, StaticRoute>>       $staticRoutes
      * @param array<string, array<int, array<string, mixed>>> $routingTree
