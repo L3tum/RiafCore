@@ -6,6 +6,7 @@ namespace Riaf\Compiler;
 
 use DateTimeImmutable;
 use Nyholm\Psr7\Request;
+use Nyholm\Psr7Server\ServerRequestCreatorInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\RequestInterface;
@@ -182,6 +183,11 @@ class ContainerCompilerTest extends TestCase
     public function testHandlesFactoryMethodWithParameters(): void
     {
         self::assertEquals('Factory', self::$container->get(FactoryMethodWithParameters::class)->creator);
+    }
+
+    public function testAddsServerRequestCreatorByDefault(): void
+    {
+        self::assertInstanceOf(ServerRequestCreatorInterface::class, self::$container->get(ServerRequestCreatorInterface::class));
     }
 
     // TODO: Array Parsing Tests?

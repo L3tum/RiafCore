@@ -5,19 +5,10 @@ declare(strict_types=1);
 namespace Riaf\Compiler\Emitter;
 
 use Exception;
-use JetBrains\PhpStorm\Pure;
-use Riaf\Compiler\PreloadingCompiler;
-use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\PreloadCompilerConfiguration;
 
 class PreloadingEmitter extends BaseEmitter
 {
-    #[Pure]
-    public function __construct(BaseConfiguration $config, PreloadingCompiler $compiler)
-    {
-        parent::__construct($config, $compiler);
-    }
-
     /**
      * @param array<string, bool> $preloadableFiles
      *
@@ -29,8 +20,9 @@ class PreloadingEmitter extends BaseEmitter
         $config = $this->config;
         $this->openResultFile($config->getPreloadingFilepath());
         $this->writeLine('<?php');
+        $files = array_keys($preloadableFiles);
 
-        foreach ($preloadableFiles as $preloadableFile => $_) {
+        foreach ($files as $preloadableFile) {
             $this->writeLine("opcache_compile_file(\"$preloadableFile\");");
         }
     }

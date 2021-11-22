@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Riaf\Compiler\Emitter;
 
 use Exception;
+use Psr\Log\LoggerInterface;
 use Riaf\Compiler\BaseCompiler;
 use Riaf\Configuration\BaseConfiguration;
 use RuntimeException;
@@ -20,7 +21,7 @@ class BaseEmitter
      */
     private $handle = null;
 
-    public function __construct(protected BaseConfiguration $config, protected BaseCompiler $compiler)
+    public function __construct(protected BaseConfiguration $config, protected BaseCompiler $compiler, protected LoggerInterface $logger)
     {
     }
 

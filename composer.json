@@ -31,7 +31,8 @@
     "phpunit/phpunit": "^9",
     "nyholm/psr7": "^1.4",
     "league/event": "^3.0",
-    "infection/infection": "^0.24"
+    "infection/infection": "^0.24",
+    "monolog/monolog": "^2.3"
   },
   "autoload": {
     "psr-4": {
@@ -54,6 +55,6 @@
     "post-update-cmd": "@update-tools",
     "install-tools": "cd tools/php-cs-fixer && composer install",
     "update-tools": "cd tools/php-cs-fixer && composer update",
-    "compile": "bin/compile \"\\Riaf\\Compiler\\SampleCompilerConfiguration\""
+    "compile": "bin/compile \"\\Riaf\\Compiler\\SampleCompilerConfiguration\" --debug"
   }
 }

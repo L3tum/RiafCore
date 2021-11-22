@@ -4,20 +4,11 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler\Emitter;
 
-use JetBrains\PhpStorm\Pure;
-use Riaf\Compiler\MiddlewareDispatcherCompiler;
-use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\MiddlewareDispatcherCompilerConfiguration;
 
 class MiddlewareDispatcherEmitter extends BaseEmitter
 {
-    #[Pure]
-    public function __construct(BaseConfiguration $config, MiddlewareDispatcherCompiler $compiler)
-    {
-        parent::__construct($config, $compiler);
-    }
-
     /**
      * @param MiddlewareDefinition[] $middlewares
      */

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Riaf;
 
-use Nyholm\Psr7Server\ServerRequestCreator;
+use Nyholm\Psr7Server\ServerRequestCreatorInterface;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
@@ -88,10 +88,10 @@ abstract class AbstractCore
     public function createRequestFromGlobals(): ServerRequestInterface
     {
         /**
-         * @var ServerRequestCreator $creator
+         * @var ServerRequestCreatorInterface $creator
          * @psalm-suppress PossiblyNullReference It's checked in Constructor and an exception thrown if null.
          */
-        $creator = $this->container->get(ServerRequestCreator::class);
+        $creator = $this->container->get(ServerRequestCreatorInterface::class);
 
         return $creator->fromGlobals();
     }

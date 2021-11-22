@@ -5,15 +5,11 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use Exception;
-use JetBrains\PhpStorm\Pure;
 use ReflectionClass;
-use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Compiler\Emitter\EventDispatcherEmitter;
-use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\EventDispatcherCompilerConfiguration;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\ServiceDefinition;
-use Riaf\Metrics\Timing;
 use Riaf\PsrExtensions\EventDispatcher\Listener;
 use RuntimeException;
 use Throwable;
@@ -26,14 +22,7 @@ class EventDispatcherCompiler extends BaseCompiler
     /** @var array<string, bool> */
     private array $recordedClasses = [];
 
-    private EventDispatcherEmitter $emitter;
-
-    #[Pure]
-    public function __construct(BaseConfiguration $config, ?AnalyzerInterface $analyzer = null, ?Timing $timing = null)
-    {
-        parent::__construct($config, $analyzer, $timing);
-        $this->emitter = new EventDispatcherEmitter($config, $this);
-    }
+    private ?EventDispatcherEmitter $emitter = null;
 
     /**
      * @throws Exception
@@ -41,6 +30,7 @@ class EventDispatcherCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
+        $this->emitter = new EventDispatcherEmitter($this->config, $this, $this->logger);
         /** @var EventDispatcherCompilerConfiguration $config */
         $config = $this->config;
 

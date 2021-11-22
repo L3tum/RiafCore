@@ -45,6 +45,10 @@ if (!$config instanceof BaseConfiguration) {
     throw new RuntimeException("Config does not extend " . BaseConfiguration::class);
 }
 
+$debug = ($argv[2] ?? "") === "--debug";
+/** @noinspection PhpFullyQualifiedNameUsageInspection */
+$logger = $debug && class_exists("Monolog\Logger") ? new \Monolog\Logger("Riaf", [new \Monolog\Handler\StreamHandler(fopen("php://stderr", "wb+"))]) : null;
+
 $analyzer = new StandardAnalyzer($timing);
 
 $compilers = [
@@ -62,7 +66,7 @@ foreach ($compilers as $compiler) {
     $compilerClass = $compilerLoader->loadCompiler($compiler);
 
     if ($compilerClass !== null) {
-        $instance = $compilerClass->newInstance($analyzer, $timing, $config);
+        $instance = $compilerClass->newInstance($config, $analyzer, $timing, $logger);
         /** @var BaseCompiler $instance */
         if ($instance->supportsCompilation()) {
             $instance->compile();

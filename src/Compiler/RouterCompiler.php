@@ -5,20 +5,16 @@ declare(strict_types=1);
 namespace Riaf\Compiler;
 
 use Exception;
-use JetBrains\PhpStorm\Pure;
 use Psr\Http\Message\ServerRequestInterface;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionParameter;
-use Riaf\Compiler\Analyzer\AnalyzerInterface;
 use Riaf\Compiler\Emitter\RouterEmitter;
 use Riaf\Compiler\Router\StaticRoute;
-use Riaf\Configuration\BaseConfiguration;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\RouterCompilerConfiguration;
 use Riaf\Configuration\ServiceDefinition;
-use Riaf\Metrics\Timing;
 use Riaf\Routing\Route;
 use RuntimeException;
 use Throwable;
@@ -40,14 +36,7 @@ class RouterCompiler extends BaseCompiler
      */
     private array $recordedClasses = [];
 
-    private RouterEmitter $emitter;
-
-    #[Pure]
-    public function __construct(BaseConfiguration $config, ?AnalyzerInterface $analyzer = null, ?Timing $timing = null)
-    {
-        parent::__construct($config, $analyzer, $timing);
-        $this->emitter = new RouterEmitter($config, $this);
-    }
+    private ?RouterEmitter $emitter = null;
 
     public function supportsCompilation(): bool
     {
@@ -60,6 +49,7 @@ class RouterCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
+        $this->emitter = new RouterEmitter($this->config, $this, $this->logger);
         $this->staticRoutes['HEAD'] = [];
         $this->routingTree['HEAD'] = [];
 
