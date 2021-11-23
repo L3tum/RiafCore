@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Riaf\Compiler\Emitter;
 
 use Exception;
+use Riaf\Compiler\PreloadingCompiler;
 use Riaf\Configuration\ContainerCompilerConfiguration;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
@@ -30,7 +31,7 @@ class ContainerEmitter extends BaseEmitter
      *
      * @throws Exception
      */
-    public function emitContainer(array &$services, array &$constructorCache, array &$manuallyAddedServices): void
+    public function emitContainer(array &$services, array &$constructorCache, array &$manuallyAddedServices, PreloadingCompiler $preloadingCompiler): void
     {
         $this->services = &$services;
         $this->constructionMethodCache = &$constructorCache;
@@ -43,6 +44,11 @@ class ContainerEmitter extends BaseEmitter
         $availableServices = $this->generateContainerGetter();
         $this->generateContainerHasser($availableServices);
         $this->writeLine('}');
+
+        if ($preloadingCompiler->supportsCompilation()) {
+            $preloadingCompiler->addAdditionalServices($availableServices);
+            $preloadingCompiler->compile();
+        }
     }
 
     private function generateHeader(string $namespace): void

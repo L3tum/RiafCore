@@ -9,6 +9,7 @@ use Psr\Container\ContainerInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Compiler\BaseCompiler;
 use Riaf\Compiler\ContainerCompiler;
+use Riaf\Compiler\EventDispatcherCompiler;
 use Riaf\Compiler\MiddlewareDispatcherCompiler;
 use Riaf\Compiler\RouterCompiler;
 use Riaf\Configuration\BaseConfiguration;
@@ -22,6 +23,7 @@ class CoreBuilder extends Core
     private const COMPILERS = [
         RouterCompiler::class,
         MiddlewareDispatcherCompiler::class,
+        EventDispatcherCompiler::class,
         ContainerCompiler::class,
     ];
 
