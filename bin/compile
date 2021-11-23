@@ -9,7 +9,6 @@ use Riaf\Compiler\CompilerLoader;
 use Riaf\Compiler\ContainerCompiler;
 use Riaf\Compiler\EventDispatcherCompiler;
 use Riaf\Compiler\MiddlewareDispatcherCompiler;
-use Riaf\Compiler\PreloadingCompiler;
 use Riaf\Compiler\RouterCompiler;
 use Riaf\Configuration\BaseConfiguration;
 use Riaf\Metrics\Clock\SystemClock;
@@ -56,7 +55,6 @@ $compilers = [
     MiddlewareDispatcherCompiler::class,
     EventDispatcherCompiler::class,
     ContainerCompiler::class,
-    PreloadingCompiler::class,
 ];
 
 $compilers = array_merge($compilers, $config->getAdditionalCompilers());

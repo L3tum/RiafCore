@@ -167,7 +167,8 @@ class ContainerCompiler extends BaseCompiler
             $this->constructionMethodCache['projectRoot'] = '$this->get(\Riaf\Configuration\BaseConfiguration::class)->getProjectRoot()';
         }
 
-        $this->emitter->emitContainer($this->services, $this->constructionMethodCache, $this->manuallyAddedServices);
+        $preloadingCompiler = new PreloadingCompiler($this->config, $this->analyzer, $this->timing, $this->logger);
+        $this->emitter->emitContainer($this->services, $this->constructionMethodCache, $this->manuallyAddedServices, $preloadingCompiler);
         $this->services = [];
         $this->constructionMethodCache = [];
         $this->manuallyAddedServices = [];

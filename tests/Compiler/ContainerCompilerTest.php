@@ -207,11 +207,15 @@ class ContainerCompilerTest extends TestCase
 
             public function getFileHandle(BaseCompiler $compiler)
             {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
+                if ($compiler instanceof ContainerCompiler) {
+                    if ($this->stream === null) {
+                        $this->stream = fopen('php://memory', 'wb+');
+                    }
+
+                    return $this->stream;
                 }
 
-                return $this->stream;
+                return fopen('php://temp', 'wb+');
             }
         };
 
