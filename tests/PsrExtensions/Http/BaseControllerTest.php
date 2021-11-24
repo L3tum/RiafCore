@@ -147,7 +147,7 @@ class BaseControllerTest extends TestCase
 
         self::assertEquals('{"name":"Hello"}', (string) $response->getBody());
         self::assertEquals('application/json', $response->getHeaderLine('Content-Type'));
-        self::assertEquals('private,max-age:0', $response->getHeaderLine('Cache-Control'));
+        self::assertEquals('private, max-age:0', $response->getHeaderLine('Cache-Control'));
     }
 
     protected function setUp(): void

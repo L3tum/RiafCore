@@ -153,4 +153,9 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
     {
         return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/EventDispatcher.php';
     }
+
+    public function getPreloadingBasePath(): ?string
+    {
+        return null;
+    }
 }

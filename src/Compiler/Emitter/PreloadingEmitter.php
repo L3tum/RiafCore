@@ -21,9 +21,18 @@ class PreloadingEmitter extends BaseEmitter
         $this->openResultFile($config->getPreloadingFilepath());
         $this->writeLine('<?php');
         $files = array_keys($preloadableFiles);
+        $basePath = $config->getPreloadingBasePath();
+        $basePath = $basePath !== null ? rtrim($basePath, '/') : $basePath;
+        $root = $this->config->getProjectRoot();
 
         foreach ($files as $preloadableFile) {
-            $this->writeLine("opcache_compile_file(\"$preloadableFile\");");
+            if ($basePath !== null) {
+                $preloadableFile = str_replace($root, $basePath, $preloadableFile);
+            }
+
+            if (!empty($preloadableFile)) {
+                $this->writeLine("opcache_compile_file(\"$preloadableFile\");");
+            }
         }
     }
 }

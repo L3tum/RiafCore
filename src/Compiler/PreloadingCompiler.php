@@ -60,7 +60,7 @@ class PreloadingCompiler extends BaseCompiler
 
             if (file_exists($file)) {
                 $this->preloadedFiles[$file] = true;
-                $this->preloadedFiles[(new ReflectionClass(ContainerInterface::class))->getFileName()] = true;
+                $this->preloadedFiles[(new ReflectionClass(ContainerInterface::class))->getFileName() ?: ''] = true;
             }
         }
 
@@ -70,8 +70,8 @@ class PreloadingCompiler extends BaseCompiler
 
             if (file_exists($file)) {
                 $this->preloadedFiles[$file] = true;
-                $this->preloadedFiles[(new ReflectionClass(EventDispatcherInterface::class))->getFileName()] = true;
-                $this->preloadedFiles[(new ReflectionClass(StoppableEventInterface::class))->getFileName()] = true;
+                $this->preloadedFiles[(new ReflectionClass(EventDispatcherInterface::class))->getFileName() ?: ''] = true;
+                $this->preloadedFiles[(new ReflectionClass(StoppableEventInterface::class))->getFileName() ?: ''] = true;
             }
         }
 
@@ -81,8 +81,8 @@ class PreloadingCompiler extends BaseCompiler
 
             if (file_exists($file)) {
                 $this->preloadedFiles[$file] = true;
-                $this->preloadedFiles[(new ReflectionClass(MiddlewareInterface::class))->getFileName()] = true;
-                $this->preloadedFiles[(new ReflectionClass(RequestHandlerInterface::class))->getFileName()] = true;
+                $this->preloadedFiles[(new ReflectionClass(MiddlewareInterface::class))->getFileName() ?: ''] = true;
+                $this->preloadedFiles[(new ReflectionClass(RequestHandlerInterface::class))->getFileName() ?: ''] = true;
             }
         }
 
@@ -92,8 +92,8 @@ class PreloadingCompiler extends BaseCompiler
 
             if (file_exists($file)) {
                 $this->preloadedFiles[$file] = true;
-                $this->preloadedFiles[(new ReflectionClass(MiddlewareInterface::class))->getFileName()] = true;
-                $this->preloadedFiles[(new ReflectionClass(RequestHandlerInterface::class))->getFileName()] = true;
+                $this->preloadedFiles[(new ReflectionClass(MiddlewareInterface::class))->getFileName() ?: ''] = true;
+                $this->preloadedFiles[(new ReflectionClass(RequestHandlerInterface::class))->getFileName() ?: ''] = true;
             }
         }
 

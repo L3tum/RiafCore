@@ -63,13 +63,12 @@ abstract class BaseController
         } else {
             $response = $factory->createResponse($statusCode, $statusText);
         }
-        $response = $response->withHeader('Content-Type', 'application/json');
 
-        foreach ($headers as $name => $header) {
-            if (is_array($header)) {
-                $header = implode(',', $header);
-            }
-            $response = $response->withHeader($name, $header);
+        $keys = array_keys($headers);
+        $len = count($keys);
+
+        for ($i = 0; $i < $len; ++$i) {
+            $response = $response->withHeader($keys[$i], $headers[$keys[$i]]);
         }
 
         return $response->withBody($body);

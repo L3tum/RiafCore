@@ -48,6 +48,35 @@ class PreloadingCompilerTest extends TestCase
         self::assertStringContainsString('opcache_compile_file("' . $this->config->getProjectRoot() . '/vendor/', $content);
     }
 
+    public function testReplacesProjectRootWithBasePath(): void
+    {
+        $config = new class() extends SampleCompilerConfiguration {
+            private $stream = null;
+
+            public function getFileHandle(BaseCompiler $compiler)
+            {
+                if ($this->stream === null) {
+                    $this->stream = fopen('php://memory', 'wb+');
+                }
+
+                return $this->stream;
+            }
+
+            public function getPreloadingBasePath(): ?string
+            {
+                return '/var/some/non/existing/path';
+            }
+        };
+
+        $compiler = new PreloadingCompiler($config);
+        $compiler->compile();
+        $stream = $config->getFileHandle($compiler);
+        fseek($stream, 0);
+        $content = stream_get_contents($stream);
+        self::assertStringContainsString('opcache_compile_file("' . $config->getPreloadingBasePath() . '/vendor/', $content);
+        self::assertStringNotContainsString($config->getProjectRoot(), $content);
+    }
+
     public function testDoesNotAddAdditionalFileIfAlreadyPreloaded(): void
     {
         $this->config = new class() extends SampleCompilerConfiguration {
