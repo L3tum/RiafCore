@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler;
 
+use ArrayAccess;
+use ArrayIterator;
 use DateTimeImmutable;
 use Nyholm\Psr7\Request;
 use Nyholm\Psr7Server\ServerRequestCreatorInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
+use Psr\Container\NotFoundExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Configuration\ServiceDefinition;
@@ -188,6 +191,31 @@ class ContainerCompilerTest extends TestCase
     public function testAddsServerRequestCreatorByDefault(): void
     {
         self::assertInstanceOf(ServerRequestCreatorInterface::class, self::$container->get(ServerRequestCreatorInterface::class));
+    }
+
+    public function testHandlesMapArraysAsParameters(): void
+    {
+        self::assertInstanceOf(ArrayIterator::class, self::$container->get('hashmap_iterator'));
+    }
+
+    public function testHandlesPlainArraysAsParameters(): void
+    {
+        self::assertInstanceOf(ArrayIterator::class, self::$container->get('array_iterator'));
+    }
+
+    public function testDoesNotPullOutServiceDefinitionClassWhenReferencedMultipleTimes(): void
+    {
+        $this->expectException(NotFoundExceptionInterface::class);
+        self::$container->get(ArrayIterator::class);
+    }
+
+    public function testDoesNotSaveClassOrInterfaceAsServices(): void
+    {
+        self::$container->get('hashmap_iterator');
+        $this->expectException(NotFoundExceptionInterface::class);
+        self::$container->get(ArrayIterator::class);
+        $this->expectException(NotFoundExceptionInterface::class);
+        self::$container->get(ArrayAccess::class);
     }
 
     // TODO: Array Parsing Tests?

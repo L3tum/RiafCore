@@ -21,6 +21,7 @@ final class ParameterDefinition implements JsonSerializable
         private bool $skipIfNotFound = false,
         private bool $isNull = false,
         private bool $isBool = false,
+        private bool $isArray = false,
         private ?ParameterDefinition $fallback = null
     ) {
     }
@@ -65,15 +66,23 @@ final class ParameterDefinition implements JsonSerializable
     public static function fromValue(string $name, mixed $value): self
     {
         if (is_string($value)) {
-            return ParameterDefinition::createString($name, $value);
+            return self::createString($name, $value);
         } elseif (is_int($value)) {
-            return ParameterDefinition::createInteger($name, $value);
+            return self::createInteger($name, $value);
         } elseif (is_float($value)) {
-            return ParameterDefinition::createFloat($name, $value);
+            return self::createFloat($name, $value);
         } elseif (is_bool($value)) {
-            return ParameterDefinition::createBool($name, $value);
+            return self::createBool($name, $value);
         } elseif (null === $value) {
-            return ParameterDefinition::createNull($name);
+            return self::createNull($name);
+        } elseif (is_array($value)) {
+            $values = [];
+
+            foreach ($value as $key => $item) {
+                $values[] = ['key' => self::fromValue("$key", $key), 'value' => self::fromValue("$key", $item)];
+            }
+
+            return self::createArray($name, $values);
         }
         // TODO: Exception
         throw new RuntimeException('Invalid parameter value');
@@ -107,6 +116,18 @@ final class ParameterDefinition implements JsonSerializable
     public static function createNull(string $name): self
     {
         return new self($name, null, isNull: true);
+    }
+
+    /**
+     * @param string                                                                  $name
+     * @param array<int, array{key: ParameterDefinition, value: ParameterDefinition}> $values
+     *
+     * @return static
+     */
+    #[Pure]
+    public static function createArray(string $name, array $values): self
+    {
+        return new self($name, $values, isArray: true);
     }
 
     public function withFallback(ParameterDefinition $fallback): self
@@ -147,8 +168,8 @@ final class ParameterDefinition implements JsonSerializable
     {
         return [
             'name' => $this->getName(),
-            'value' => $this->getValue(),
-            'type' => $this->isBool() ? 'bool' : ($this->isInjected() ? 'injected' : ($this->isSkipIfNotFound() ? 'skip' : ($this->isEnv() ? 'env' : ($this->isNamedConstant() ? 'named_constant' : ($this->isString() ? 'string' : ($this->isConstantPrimitive() ? 'primitive' : ($this->isNull() ? 'null' : 'no type'))))))),
+            'value' => json_encode($this->getValue()),
+            'type' => $this->isBool() ? 'bool' : ($this->isInjected() ? 'injected' : ($this->isSkipIfNotFound() ? 'skip' : ($this->isEnv() ? 'env' : ($this->isNamedConstant() ? 'named_constant' : ($this->isString() ? 'string' : ($this->isConstantPrimitive() ? 'primitive' : ($this->isNull() ? 'null' : ($this->isArray() ? 'array' : 'no type')))))))),
             'fallback' => json_encode($this->getFallback()),
         ];
     }
@@ -191,6 +212,11 @@ final class ParameterDefinition implements JsonSerializable
     public function isNull(): bool
     {
         return $this->isNull;
+    }
+
+    public function isArray(): bool
+    {
+        return $this->isArray;
     }
 
     public function getFallback(): ?ParameterDefinition

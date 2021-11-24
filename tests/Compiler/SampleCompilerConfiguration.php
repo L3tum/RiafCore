@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Riaf\Compiler;
 
+use ArrayIterator;
 use DateTimeImmutable;
 use Psr\Http\Message\RequestInterface;
 use Riaf\Compiler\Analyzer\AnalyzerInterface;
@@ -126,6 +127,14 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
                 ->setStaticFactoryMethod(FactoryMethodContainerParameter::class, 'create'),
             FactoryMethodWithParameters::class => ServiceDefinition::create(FactoryMethodWithParameters::class)
                 ->setStaticFactoryMethod(FactoryMethodWithParameters::class, 'create'),
+            'hashmap_iterator' => ServiceDefinition::create(ArrayIterator::class)
+                ->setParameters([
+                    ['name' => 'array', 'value' => ['Hey' => 'No']],
+                ]),
+            'array_iterator' => ServiceDefinition::create(ArrayIterator::class)
+                ->setParameters([
+                    ['name' => 'array', 'value' => [0, 1, 2]],
+                ]),
         ];
     }
 

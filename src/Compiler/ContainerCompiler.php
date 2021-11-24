@@ -47,13 +47,7 @@ class ContainerCompiler extends BaseCompiler
         /** @var ContainerCompilerConfiguration $config */
         $config = $this->config;
 
-        // First collect all project-related classes
-        foreach ($this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getContainerFilepath(), $this)]) as $class) {
-            /* @var ReflectionClass $class */
-            $this->analyzeClass($class);
-        }
-
-        // Then do a first look-over for ServiceDefinitions
+        // First do a first look-over for ServiceDefinitions
         foreach ($this->config->getAdditionalServices() as $key => $value) {
             if ($value instanceof ServiceDefinition) {
                 $this->analyzeServiceDefinition($key, $value);
@@ -66,31 +60,54 @@ class ContainerCompiler extends BaseCompiler
                 if (!class_exists($value)) {
                     throw new RuntimeException("Class $value does not exist!");
                 }
-
-                $this->analyzeClass(new ReflectionClass($value));
-
-                // Add the key as a name for the service
-                if ($key !== $value && isset($this->services[$value])) {
-                    $this->services[$key] = $this->services[$value];
+                if (isset($this->services[$key])) {
+                    unset($this->services[$key]);
                 }
+                $this->analyzeClass($key, new ReflectionClass($value));
 
-                $this->manuallyAddedServices[$value] = true;
-                $this->manuallyAddedServices[$key] = true;
+                if (isset($this->services[$key])) {
+                    $this->manuallyAddedServices[$key] = true;
+
+                    // Add the classname as a key for the service
+                    if ($key !== $value) {
+                        if (isset($this->services[$value]) && !isset($this->manuallyAddedServices[$value])) {
+                            $this->services[$value] = false;
+                        } else {
+                            $this->services[$value] = $this->services[$key];
+                        }
+                    }
+                }
             } elseif ($value instanceof MiddlewareDefinition) {
                 try {
-                    $class = $value->getReflectionClass();
-                    $this->analyzeClass($class);
-
-                    // Add the key as a name for the service
-                    if ($key !== $class->name && isset($this->services[$class->name])) {
-                        $this->services[$key] = $this->services[$class->name];
+                    if (isset($this->services[$key])) {
+                        unset($this->services[$key]);
                     }
+                    $this->analyzeClass($key, $value->getReflectionClass());
 
-                    $this->manuallyAddedServices[$class->name] = true;
-                    $this->manuallyAddedServices[$key] = true;
+                    if (isset($this->services[$key])) {
+                        $this->manuallyAddedServices[$key] = true;
+                        $className = $value->getReflectionClass()->getName();
+
+                        // Add the classname as a key for the service
+                        if ($key !== $className) {
+                            if (isset($this->services[$className]) && !isset($this->manuallyAddedServices[$className])) {
+                                $this->services[$className] = false;
+                            } else {
+                                $this->services[$className] = $this->services[$key];
+                            }
+                        }
+                    }
                 } catch (Throwable) {
                     throw new RuntimeException('Class does not exist!');
                 }
+            }
+        }
+
+        // Lastly collect all project-related classes
+        foreach ($this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getContainerFilepath(), $this)]) as $class) {
+            /* @var ReflectionClass $class */
+            if (!isset($this->services[$class->name])) {
+                $this->analyzeClass($class->name, $class);
             }
         }
 
@@ -98,7 +115,9 @@ class ContainerCompiler extends BaseCompiler
         $ownClass = $config->getContainerNamespace() . '\\Container';
         if (!isset($this->services[$ownClass]) && !isset($this->constructionMethodCache[$ownClass])) {
             $this->services[$ownClass] = new ServiceDefinition($ownClass);
-            $this->services[ContainerInterface::class] = $this->services[$ownClass];
+            if (!isset($this->services[ContainerInterface::class])) {
+                $this->services[ContainerInterface::class] = $this->services[$ownClass];
+            }
             $this->constructionMethodCache[$ownClass] = '$this';
         } else {
             $this->logger->debug('Container is already defined, cannot add itself');
@@ -111,7 +130,9 @@ class ContainerCompiler extends BaseCompiler
             && !isset($this->services[$configClass])
         ) {
             $this->services[$configClass] = new ServiceDefinition($configClass);
-            $this->services[BaseConfiguration::class] = $this->services[$configClass];
+            if (!isset($this->services[BaseConfiguration::class])) {
+                $this->services[BaseConfiguration::class] = $this->services[$configClass];
+            }
             $this->constructionMethodCache[$configClass] = "new \\$configClass()";
         } else {
             $this->logger->debug('Cannot add Config to Container');
@@ -128,7 +149,7 @@ class ContainerCompiler extends BaseCompiler
             && !isset($this->services["Psr\Http\Message\UploadedFileFactoryInterface"])
         ) {
             /** @noinspection PhpFullyQualifiedNameUsageInspection */
-            $this->analyzeClass(new ReflectionClass(\Nyholm\Psr7\Factory\Psr17Factory::class));
+            $this->analyzeClass(\Nyholm\Psr7\Factory\Psr17Factory::class, new ReflectionClass(\Nyholm\Psr7\Factory\Psr17Factory::class));
         } else {
             $this->logger->debug('Psr17Factory is not defined');
         }
@@ -145,14 +166,14 @@ class ContainerCompiler extends BaseCompiler
             && isset($this->services["Psr\Http\Message\UploadedFileFactoryInterface"])
         ) {
             /** @noinspection PhpFullyQualifiedNameUsageInspection */
-            $this->analyzeClass(new ReflectionClass(\Nyholm\Psr7Server\ServerRequestCreator::class));
+            $this->analyzeClass(\Nyholm\Psr7Server\ServerRequestCreator::class, new ReflectionClass(\Nyholm\Psr7Server\ServerRequestCreator::class));
         } else {
             $this->logger->debug('Cannot add ServerRequestCreator to Container');
         }
 
         // Add StandardResponseEmitter
         if (!isset($this->services[ResponseEmitterInterface::class])) {
-            $this->analyzeClass(new ReflectionClass(StandardResponseEmitter::class));
+            $this->analyzeClass(StandardResponseEmitter::class, new ReflectionClass(StandardResponseEmitter::class));
         } else {
             $this->logger->debug('Response Emitter already defined');
         }
@@ -178,16 +199,74 @@ class ContainerCompiler extends BaseCompiler
         return true;
     }
 
+    private function analyzeServiceDefinition(string $key, ServiceDefinition $value): void
+    {
+        $this->manuallyAddedServices[$key] = true;
+        $class = $value->getReflectionClass();
+
+        // If the class does not exist, don't analyze it. Just pump it into the Container
+        if ($class === null) {
+            $this->services[$key] = $value;
+        } else {
+            if (isset($this->services[$key])) {
+                unset($this->services[$key]);
+            }
+
+            $this->analyzeClass($key, $class, $value);
+
+            // If something went wrong during Analysis save the ServiceDefinition anyways
+            if (!isset($this->services[$key])) {
+                $this->services[$key] = $value;
+            }
+        }
+
+        $className = $value->getClassName();
+
+        // Add the classname as a key for the service
+        if ($key !== $className) {
+            if (isset($this->services[$className]) && !isset($this->manuallyAddedServices[$className])) {
+                $this->services[$className] = false;
+            } else {
+                $this->services[$className] = $this->services[$key];
+            }
+        }
+
+        foreach ($value->getAliases() as $alias) {
+            $this->services[$alias] = $this->services[$key];
+        }
+
+        // Go over the defined parameters
+        // And for each parameter:
+        //      1. Check if it has been recorded as a service
+        //      2. Add the parameter to the list for separate methods
+        //      3. Check the fallback
+        /**
+         * @psalm-suppress PossiblyFalseReference Explicitly set above...
+         * @phpstan-ignore-next-line Explicitly set above, why is this so hard you stupid static analyzers
+         */
+        $parameters = $this->services[$key]->getParameters();
+        foreach ($parameters as $parameter) {
+            while ($parameter !== null) {
+                if ($parameter->isInjected() && !isset($this->services[$parameter->getValue()])) {
+                    if (class_exists($parameter->getValue())) {
+                        /** @noinspection PhpUnhandledExceptionInspection */
+                        $this->analyzeClass($parameter->getValue(), new ReflectionClass($parameter->getValue()));
+                    }
+                }
+
+                $parameter = $parameter->getFallback();
+            }
+        }
+    }
+
     /**
      * @param ReflectionClass<object> $class
      */
-    private function analyzeClass(ReflectionClass $class, ?ServiceDefinition $predefinedDefinition = null): void
+    private function analyzeClass(string $key, ReflectionClass $class, ?ServiceDefinition $predefinedDefinition = null): void
     {
-        $className = $class->getName();
-
         // Skip Abstract Classes, non-instantiable, anonymous, attributes, exceptions and those we already analyzed
         if (
-            isset($this->services[$className])
+            isset($this->services[$key])
             || $class->isAbstract()
             || $class->isInterface()
             || !$class->isInstantiable()
@@ -198,17 +277,21 @@ class ContainerCompiler extends BaseCompiler
             return;
         }
 
+        $className = $class->getName();
         $definition = new ServiceDefinition($className);
-        $this->services[$className] = $definition;
+        $this->services[$key] = $definition;
 
         // Record class as implementation for interface
         foreach ($class->getInterfaces() as $interface) {
             $interfaceName = $interface->getName();
 
-            if (!isset($this->services[$interfaceName])) {
-                $this->services[$interfaceName] = $this->services[$className];
-            } else {
-                $this->services[$interfaceName] = false;
+            // Make sure we don't just repeat the current analysis
+            if ($key !== $interfaceName && $className !== $interfaceName) {
+                if (!isset($this->services[$interfaceName])) {
+                    $this->services[$interfaceName] = $this->services[$key];
+                } else {
+                    $this->services[$interfaceName] = false;
+                }
             }
         }
 
@@ -216,13 +299,17 @@ class ContainerCompiler extends BaseCompiler
         $extensionClass = $class->getParentClass();
         while ($extensionClass !== null && $extensionClass !== false) {
             $extensionClassName = $extensionClass->getName();
-            $this->analyzeClass($extensionClass);
 
-            if ($extensionClass->isInterface() || $extensionClass->isAbstract()) {
-                if (!isset($this->services[$extensionClassName])) {
-                    $this->services[$extensionClassName] = $this->services[$className];
-                } else {
-                    $this->services[$extensionClassName] = false;
+            // Make sure we don't just repeat the current analysis
+            if ($key !== $extensionClassName && $className !== $extensionClassName) {
+                $this->analyzeClass($extensionClassName, $extensionClass);
+
+                if ($extensionClass->isInterface() || $extensionClass->isAbstract()) {
+                    if (!isset($this->services[$extensionClassName])) {
+                        $this->services[$extensionClassName] = $this->services[$key];
+                    } else {
+                        $this->services[$extensionClassName] = false;
+                    }
                 }
             }
 
@@ -274,7 +361,7 @@ class ContainerCompiler extends BaseCompiler
                 $type = $this->getReflectionClassFromReflectionType($parameter->getType());
 
                 if ($type !== null && $type->name !== $className) {
-                    $this->analyzeClass($type);
+                    $this->analyzeClass($type->name, $type);
                     $param = $param->withFallback(ParameterDefinition::createInjected($parameter->name, $type->name));
                 }
 
@@ -305,58 +392,6 @@ class ContainerCompiler extends BaseCompiler
             }
 
             $definition->setParameters($parameters);
-        }
-    }
-
-    private function analyzeServiceDefinition(string $key, ServiceDefinition $value): void
-    {
-        $className = $value->getClassName();
-        $class = $value->getReflectionClass();
-
-        $this->manuallyAddedServices[$className] = true;
-        $this->manuallyAddedServices[$key] = true;
-
-        // If the class does not exist, don't analyze it. Just pump it into the Container
-        if ($class === null) {
-            $this->services[$className] = $value;
-        } else {
-            $this->analyzeClass($class, $value);
-
-            // If something went wrong during Analysis save the ServiceDefinition anyways
-            if (!isset($this->services[$className])) {
-                $this->services[$className] = $value;
-            }
-        }
-
-        if ($key !== $className) {
-            $this->services[$key] = $this->services[$className];
-        }
-
-        foreach ($value->getAliases() as $alias) {
-            $this->services[$alias] = $this->services[$key];
-        }
-
-        // Go over the defined parameters
-        // And for each parameter:
-        //      1. Check if it has been recorded as a service
-        //      2. Add the parameter to the list for separate methods
-        //      3. Check the fallback
-        /**
-         * @psalm-suppress PossiblyFalseReference Explicitly set above...
-         * @phpstan-ignore-next-line Explicitly set above, why is this so hard you stupid static analyzers
-         */
-        $parameters = $this->services[$className]->getParameters();
-        foreach ($parameters as $parameter) {
-            while ($parameter !== null) {
-                if ($parameter->isInjected()) {
-                    if (class_exists($parameter->getValue())) {
-                        /** @noinspection PhpUnhandledExceptionInspection */
-                        $this->analyzeClass(new ReflectionClass($parameter->getValue()));
-                    }
-                }
-
-                $parameter = $parameter->getFallback();
-            }
         }
     }
 

@@ -79,29 +79,29 @@ HEADER
         /** @var string[] $availableServices */
         $availableServices = [];
 
-        foreach ($this->services as $className => $serviceDefinition) {
+        foreach ($this->services as $key => $serviceDefinition) {
             // Skip those where the implementation is not clearly defined
             if ($serviceDefinition === false) {
                 continue;
             }
 
-            $method = $this->generateAutowiredConstructor($className, $serviceDefinition);
+            $method = $this->generateAutowiredConstructor($key, $serviceDefinition);
 
             // Cannot provide this service, skip it
             if ($method === null) {
-                if (isset($this->manuallyAddedServices[$className])) {
+                if (isset($this->manuallyAddedServices[$key])) {
                     // TODO: Exception
-                    throw new RuntimeException("Cannot provide Service $className");
+                    throw new RuntimeException("Cannot provide Service $key");
                 }
                 continue;
             }
 
             $this->writeLine(
-                "\"$className\" => $method,",
+                "\"$key\" => $method,",
                 3
             );
 
-            $availableServices[] = $className;
+            $availableServices[] = $key;
         }
 
         $this->writeLine(
@@ -175,7 +175,8 @@ HEADER
 
             // If the key is not the className then it's likely an interface,
             // which means that we need to save the service under the className as well.
-            if ($key !== $className) {
+            // Beware though of classNames that are defined multiple times, which is why we check Services for false
+            if ($key !== $className && (!isset($this->services[$className]) || $this->services[$className] !== false)) {
                 $method .= "\$this->instantiatedServices[\"$className\"] ?? \$this->instantiatedServices[\"$className\"] = ";
             }
         } else {
@@ -237,6 +238,22 @@ HEADER
             }
 
             return $this->createGetterFromParameter($fallback, $resolvingStack);
+        } elseif ($parameter->isArray()) {
+            $generated = '';
+            foreach ($parameter->getValue() as $packed) {
+                $key = $this->createGetterFromParameter($packed['key']);
+                $value = $this->createGetterFromParameter($packed['value']);
+
+                if ($key === null || $value === null) {
+                    return null;
+                } elseif ($key === false || $value === false) {
+                    return false;
+                }
+
+                $generated .= $key . ' => ' . $value . ', ';
+            }
+
+            return "[$generated]";
         } elseif ($parameter->isSkipIfNotFound()) {
             return false;
         }
