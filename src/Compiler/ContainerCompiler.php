@@ -355,39 +355,11 @@ class ContainerCompiler extends BaseCompiler
                     continue;
                 }
 
-                $param = ParameterDefinition::createInjected($parameter->name, $parameter->name);
-                $parameters[] = $param;
-
                 $type = $this->getReflectionClassFromReflectionType($parameter->getType());
+                $parameters[] = ParameterDefinition::fromParameter($parameter, $className, $type);
 
                 if ($type !== null && $type->name !== $className) {
                     $this->analyzeClass($type->name, $type);
-                    $param = $param->withFallback(ParameterDefinition::createInjected($parameter->name, $type->name));
-                }
-
-                // Default value
-                if ($parameter->isDefaultValueAvailable()) {
-                    $value = $parameter->getDefaultValue();
-                    // Named constant
-                    if ($parameter->isDefaultValueConstant() && $parameter->getDefaultValueConstantName() !== null) {
-                        /** @noinspection PhpUnhandledExceptionInspection */
-                        $name = $parameter->getDefaultValueConstantName();
-
-                        if (str_starts_with($name, 'self::')) {
-                            $name = str_replace('self::', "\\$className::", $name);
-                        }
-
-                        $param = $param->withFallback(ParameterDefinition::createNamedConstant($parameter->name, $name));
-                    } else {
-                        try {
-                            $param = $param->withFallback(ParameterDefinition::fromValue($parameter->name, $value));
-                        } catch (Exception) {
-                            // Intentionally left blank
-                        }
-                    }
-                } else {
-                    // Skip if no default value available and cannot be injected
-                    $param = $param->withFallback(ParameterDefinition::createSkipIfNotFound($parameter->name));
                 }
             }
 

@@ -39,8 +39,10 @@ abstract class BaseCompiler
 
     /**
      * @return ReflectionClass<object>|null
+     *
+     * @internal
      */
-    protected function getReflectionClassFromReflectionType(?ReflectionType $reflectionType): ?ReflectionClass
+    public static function getReflectionClassFromReflectionType(?ReflectionType $reflectionType): ?ReflectionClass
     {
         if ($reflectionType === null) {
             return null;

@@ -32,7 +32,8 @@
     "nyholm/psr7": "^1.4",
     "league/event": "^3.0",
     "infection/infection": "^0.24",
-    "monolog/monolog": "^2.3"
+    "monolog/monolog": "^2.3",
+    "opis/closure": "^3.6"
   },
   "autoload": {
     "psr-4": {

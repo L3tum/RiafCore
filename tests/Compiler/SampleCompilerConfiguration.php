@@ -135,6 +135,28 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
                 ->setParameters([
                     ['name' => 'array', 'value' => [0, 1, 2]],
                 ]),
+            'serializable_object' => ServiceDefinition::create(ArrayIterator::class)
+                ->setParameters([
+                    ['name' => 'array', 'value' => [(new ParameterDefinition('test', 'test'))]],
+                ]),
+            'serializable_closure' => ServiceDefinition::create(ArrayIterator::class)
+                ->setParameters([
+                    [
+                        'name' => 'array',
+                        'value' => static function () {
+                            return [1, 2, 3];
+                        },
+                    ],
+                ]),
+            'serializable_closure_parameters' => ServiceDefinition::create(ArrayIterator::class)
+                ->setParameters([
+                    [
+                        'name' => 'array',
+                        'value' => static function (AnalyzerInterface $analyzer) {
+                            return [1, 2, 3];
+                        },
+                    ],
+                ]),
         ];
     }
 

@@ -241,8 +241,8 @@ HEADER
         } elseif ($parameter->isArray()) {
             $generated = '';
             foreach ($parameter->getValue() as $packed) {
-                $key = $this->createGetterFromParameter($packed['key']);
-                $value = $this->createGetterFromParameter($packed['value']);
+                $key = $this->createGetterFromParameter($packed['key'], $resolvingStack);
+                $value = $this->createGetterFromParameter($packed['value'], $resolvingStack);
 
                 if ($key === null || $value === null) {
                     return null;
@@ -254,6 +254,28 @@ HEADER
             }
 
             return "[$generated]";
+        } elseif ($parameter->isObject()) {
+            return "\unserialize('{$parameter->getValue()}')";
+        } elseif ($parameter->isClosure()) {
+            $value = $parameter->getValue();
+            $closure = $value['closure'];
+            $parameters = $value['parameters'];
+            $getters = [];
+
+            foreach ($parameters as $parameter) {
+                $getter = $this->createGetterFromParameter($parameter, $resolvingStack);
+
+                if ($getter === null) {
+                    return null;
+                } elseif ($getter === false) {
+                    return false;
+                }
+
+                $getters[] = $getter;
+            }
+            $param = implode(', ', $getters);
+
+            return "((\unserialize('{$closure}'))->getClosure())($param)";
         } elseif ($parameter->isSkipIfNotFound()) {
             return false;
         }

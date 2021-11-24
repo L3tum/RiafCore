@@ -9,11 +9,13 @@ use ArrayIterator;
 use DateTimeImmutable;
 use Nyholm\Psr7\Request;
 use Nyholm\Psr7Server\ServerRequestCreatorInterface;
+use Opis\Closure\ClosureStream;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
+use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
 use Riaf\TestCases\Container\DefaultBoolParameter;
 use Riaf\TestCases\Container\DefaultFloatParameter;
@@ -216,6 +218,34 @@ class ContainerCompilerTest extends TestCase
         self::$container->get(ArrayIterator::class);
         $this->expectException(NotFoundExceptionInterface::class);
         self::$container->get(ArrayAccess::class);
+    }
+
+    public function testSupportsSerializableObjectsAsParameters(): void
+    {
+        /** @var ArrayIterator $iterator */
+        $iterator = self::$container->get('serializable_object');
+        $iterator->rewind();
+        self::assertInstanceOf(ParameterDefinition::class, $iterator->current());
+    }
+
+    /** @runInSeparateProcess */
+    public function testSupportsClosureAsParameter(): void
+    {
+        ClosureStream::register();
+        /** @var ArrayIterator $iterator */
+        $iterator = self::$container->get('serializable_closure');
+        $iterator->rewind();
+        self::assertIsInt($iterator->current());
+    }
+
+    /** @runInSeparateProcess */
+    public function testSupportsClosureAsParameterWithParameters(): void
+    {
+        ClosureStream::register();
+        /** @var ArrayIterator $iterator */
+        $iterator = self::$container->get('serializable_closure_parameters');
+        $iterator->rewind();
+        self::assertIsInt($iterator->current());
     }
 
     // TODO: Array Parsing Tests?

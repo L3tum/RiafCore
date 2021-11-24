@@ -4,9 +4,17 @@ declare(strict_types=1);
 
 namespace Riaf\Configuration;
 
+use ArrayAccess;
+use Closure;
+use Exception;
 use JetBrains\PhpStorm\Pure;
 use JsonSerializable;
+use ReflectionClass;
+use ReflectionFunction;
+use ReflectionParameter;
+use Riaf\Compiler\BaseCompiler;
 use RuntimeException;
+use Serializable;
 
 final class ParameterDefinition implements JsonSerializable
 {
@@ -22,6 +30,8 @@ final class ParameterDefinition implements JsonSerializable
         private bool $isNull = false,
         private bool $isBool = false,
         private bool $isArray = false,
+        private bool $isObject = false,
+        private bool $isClosure = false,
         private ?ParameterDefinition $fallback = null
     ) {
     }
@@ -83,6 +93,41 @@ final class ParameterDefinition implements JsonSerializable
             }
 
             return self::createArray($name, $values);
+        } elseif (is_object($value)) {
+            if ($value instanceof Closure) {
+                if (!class_exists("Opis\Closure\SerializableClosure")) {
+                    throw new RuntimeException('Cannot serialize Closures without opis/closure installed!');
+                }
+
+                $parameters = [];
+                try {
+                    $reflection = new ReflectionFunction($value);
+                    foreach ($reflection->getParameters() as $parameter) {
+                        $parameters[] = self::fromParameter(
+                            $parameter,
+                            $reflection->getClosureScopeClass()?->getName() ?? '',
+                            BaseCompiler::getReflectionClassFromReflectionType($parameter->getType())
+                        );
+                    }
+                } catch (Exception) {
+                    // Intentionally left blank
+                }
+
+                /** @noinspection PhpFullyQualifiedNameUsageInspection */
+                return self::createClosure(
+                    $name,
+                    [
+                        'closure' => serialize(new \Opis\Closure\SerializableClosure($value)),
+                        'parameters' => $parameters,
+                    ]
+                );
+            }
+
+            if (!self::isSerializable($value)) {
+                throw new RuntimeException("Cannot serialize value of parameter $name!");
+            }
+
+            return self::createObject($name, serialize($value));
         }
         // TODO: Exception
         throw new RuntimeException('Invalid parameter value');
@@ -130,6 +175,47 @@ final class ParameterDefinition implements JsonSerializable
         return new self($name, $values, isArray: true);
     }
 
+    /**
+     * @param ReflectionClass<object>|null $type
+     *
+     * @return static
+     */
+    public static function fromParameter(ReflectionParameter $parameter, string $selfContext, ?ReflectionClass $type = null): self
+    {
+        $originalParam = $param = ParameterDefinition::createInjected($parameter->name, $parameter->name);
+
+        if ($type !== null) {
+            $param = $param->withFallback(ParameterDefinition::createInjected($parameter->name, $type->name));
+        }
+
+        // Default value
+        if ($parameter->isDefaultValueAvailable()) {
+            $value = $parameter->getDefaultValue();
+            // Named constant
+            if ($parameter->isDefaultValueConstant() && $parameter->getDefaultValueConstantName() !== null) {
+                /** @noinspection PhpUnhandledExceptionInspection */
+                $name = $parameter->getDefaultValueConstantName();
+
+                if (str_starts_with($name, 'self::')) {
+                    $name = str_replace('self::', "\\$selfContext::", $name);
+                }
+
+                $param = $param->withFallback(ParameterDefinition::createNamedConstant($parameter->name, $name));
+            } else {
+                try {
+                    $param = $param->withFallback(ParameterDefinition::fromValue($parameter->name, $value));
+                } catch (Exception) {
+                    // Intentionally left blank
+                }
+            }
+        } else {
+            // Skip if no default value available and cannot be injected
+            $param = $param->withFallback(ParameterDefinition::createSkipIfNotFound($parameter->name));
+        }
+
+        return $originalParam;
+    }
+
     public function withFallback(ParameterDefinition $fallback): self
     {
         if ($fallback->isSkipIfNotFound() && !$this->isInjected()) {
@@ -164,12 +250,73 @@ final class ParameterDefinition implements JsonSerializable
         return new self($name, false, skipIfNotFound: true);
     }
 
+    /**
+     * @param string                                                    $name
+     * @param array{closure: string, parameters: ParameterDefinition[]} $value
+     *
+     * @return static
+     */
+    #[Pure]
+    public static function createClosure(string $name, array $value): self
+    {
+        return new self($name, $value, isClosure: true);
+    }
+
+    private static function isSerializable(mixed $value): bool
+    {
+        if (is_string($value) || is_int($value) || null === $value || is_float($value) || is_bool($value) || is_array($value)) {
+            return true;
+        }
+
+        $reflection = new ReflectionClass($value);
+
+        // User-defined types are always serializable
+        if ($reflection->isUserDefined()) {
+            // If all properties are serializable
+            foreach ($reflection->getProperties() as $property) {
+                $property->setAccessible(true);
+                if (!self::isSerializable($property->getValue($value))) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // ArrayAccess apparently good too
+        if ($value instanceof ArrayAccess) {
+            return true;
+        }
+
+        // Internal objects implementing Serializable are also good
+        if ($value instanceof Serializable) {
+            return true;
+        }
+
+        // Those implementing a magic method are also good I guess
+        if ($reflection->hasMethod('__serialize') || $reflection->hasMethod('__sleep')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    #[Pure]
+    public static function createObject(string $name, string $value): self
+    {
+        return new self($name, $value, isObject: true);
+    }
+
+    public function isClosure(): bool
+    {
+        return $this->isClosure;
+    }
+
     public function jsonSerialize()
     {
         return [
             'name' => $this->getName(),
             'value' => json_encode($this->getValue()),
-            'type' => $this->isBool() ? 'bool' : ($this->isInjected() ? 'injected' : ($this->isSkipIfNotFound() ? 'skip' : ($this->isEnv() ? 'env' : ($this->isNamedConstant() ? 'named_constant' : ($this->isString() ? 'string' : ($this->isConstantPrimitive() ? 'primitive' : ($this->isNull() ? 'null' : ($this->isArray() ? 'array' : 'no type')))))))),
             'fallback' => json_encode($this->getFallback()),
         ];
     }
@@ -182,6 +329,11 @@ final class ParameterDefinition implements JsonSerializable
     public function getValue(): mixed
     {
         return $this->value;
+    }
+
+    public function getFallback(): ?ParameterDefinition
+    {
+        return $this->fallback;
     }
 
     public function isBool(): bool
@@ -219,8 +371,8 @@ final class ParameterDefinition implements JsonSerializable
         return $this->isArray;
     }
 
-    public function getFallback(): ?ParameterDefinition
+    public function isObject(): bool
     {
-        return $this->fallback;
+        return $this->isObject;
     }
 }
