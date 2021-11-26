@@ -21,21 +21,27 @@ abstract class AbstractCore
     public function __construct(protected BaseConfiguration $config, protected ?ContainerInterface $container = null)
     {
         $this->fetchContainer();
-        $this->fetchMiddlewareDispatcher();
-        $this->fetchRouter();
 
+        // Early exit if we can't find a Container at all
         if ($this->container === null) {
             // TODO: Exception
             throw new RuntimeException('Missing Container');
         }
 
-        // Try accessing it from the Container
+        $this->fetchMiddlewareDispatcher();
+
+        // Only try to fetch Router if the MiddlewareDispatcher could not be found (Router is a Middleware)
         if ($this->requestHandler === null) {
-            if ($this->container->has(RequestHandlerInterface::class)) {
-                $this->requestHandler = $this->container->get(RequestHandlerInterface::class);
-            } else {
-                // TODO: Exception
-                throw new RuntimeException('Missing RequestHandler');
+            $this->fetchRouter();
+
+            // Try accessing it from the Container if Router could not be found either
+            if ($this->requestHandler === null) {
+                if ($this->container->has(RequestHandlerInterface::class)) {
+                    $this->requestHandler = $this->container->get(RequestHandlerInterface::class);
+                } else {
+                    // TODO: Exception
+                    throw new RuntimeException('Missing RequestHandler');
+                }
             }
         }
     }
@@ -91,6 +97,7 @@ abstract class AbstractCore
          * @var ServerRequestCreatorInterface $creator
          * @psalm-suppress PossiblyNullReference It's checked in Constructor and an exception thrown if null.
          */
+        // TODO: Save as private property? Call + Null-Check vs just a null-check I guess?
         $creator = $this->container->get(ServerRequestCreatorInterface::class);
 
         return $creator->fromGlobals();
