@@ -16,6 +16,7 @@ use Psr\Http\Message\RequestInterface;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
+use Riaf\TestCases\Container\ControllerInstance;
 use Riaf\TestCases\Container\DefaultBoolParameter;
 use Riaf\TestCases\Container\DefaultFloatParameter;
 use Riaf\TestCases\Container\DefaultIntegerTestCase;
@@ -243,6 +244,13 @@ class ContainerCompilerTest extends TestCase
         $iterator = self::$container->get('serializable_closure_parameters');
         $iterator->rewind();
         self::assertIsInt($iterator->current());
+    }
+
+    public function testSupportsContainerAwareTrait(): void
+    {
+        /** @var ControllerInstance $controllerInstance */
+        $controllerInstance = self::$container->get(ControllerInstance::class);
+        self::assertTrue($controllerInstance->hasContainer());
     }
 
     // TODO: Array Parsing Tests?

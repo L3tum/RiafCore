@@ -17,6 +17,7 @@ use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\PreloadCompilerConfiguration;
 use Riaf\Configuration\RouterCompilerConfiguration;
 use Riaf\Configuration\ServiceDefinition;
+use Riaf\TestCases\Container\ControllerInstance;
 use Riaf\TestCases\Container\DefaultBoolParameter;
 use Riaf\TestCases\Container\DefaultFloatParameter;
 use Riaf\TestCases\Container\DefaultIntegerTestCase;
@@ -157,6 +158,7 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
                         },
                     ],
                 ]),
+            ControllerInstance::class => ControllerInstance::class,
         ];
     }
 

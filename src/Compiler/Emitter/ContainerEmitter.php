@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace Riaf\Compiler\Emitter;
 
 use Exception;
+use ReflectionClass;
 use Riaf\Compiler\PreloadingCompiler;
 use Riaf\Configuration\ContainerCompilerConfiguration;
 use Riaf\Configuration\ParameterDefinition;
 use Riaf\Configuration\ServiceDefinition;
+use Riaf\Helper\InheritanceHelper;
+use Riaf\PsrExtensions\Http\ContainerAware;
 use RuntimeException;
 
 class ContainerEmitter extends BaseEmitter
@@ -184,10 +187,16 @@ HEADER
         }
 
         if ($serviceDefinition->getStaticFactoryClass() !== null && $serviceDefinition->getStaticFactoryMethod() !== null) {
-            $method .= "\\{$serviceDefinition->getStaticFactoryClass()}::{$serviceDefinition->getStaticFactoryMethod()}($parameterString)";
+            $constructor = "\\{$serviceDefinition->getStaticFactoryClass()}::{$serviceDefinition->getStaticFactoryMethod()}($parameterString)";
         } else {
-            $method .= "new \\$className($parameterString)";
+            $constructor = "new \\$className($parameterString)";
         }
+
+        if (InheritanceHelper::usesTrait(ContainerAware::class, new ReflectionClass($className))) {
+            $constructor = "($constructor)->setContainer(\$this)";
+        }
+
+        $method .= $constructor;
 
         unset($resolvingStack[$className]);
 

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Riaf\PsrExtensions\Http;
 
 use JsonException;
-use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
@@ -13,9 +12,7 @@ use Psr\Http\Message\StreamInterface;
 
 abstract class BaseController
 {
-    public function __construct(protected ContainerInterface $container)
-    {
-    }
+    use ContainerAware;
 
     /**
      * @param string|object|mixed[]          $data
