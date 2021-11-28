@@ -63,14 +63,8 @@ abstract class BaseCompiler
         return null;
     }
 
-    protected function getOutputFile(string $filePath, BaseCompiler $compiler): ?string
+    protected function getOutputFile(string $filePath): string
     {
-        $handle = $this->config->getFileHandle($compiler);
-
-        if ($handle === null) {
-            return $this->config->getProjectRoot() . $filePath;
-        }
-
-        return null;
+        return $this->config->getProjectRoot() . $filePath;
     }
 }

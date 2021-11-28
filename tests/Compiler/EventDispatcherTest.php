@@ -111,17 +111,6 @@ class EventDispatcherTest extends TestCase
     public function testThrowsIfEventDoesNotExist(): void
     {
         $config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-
             public function getAdditionalServices(): array
             {
                 return [EventListenerEventNotExisting::class];
@@ -137,17 +126,6 @@ class EventDispatcherTest extends TestCase
     public function testThrowsIfMethodDoesNotExist(): void
     {
         $config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-
             public function getAdditionalServices(): array
             {
                 return [EventListenerMethodNotExisting::class];
@@ -163,17 +141,6 @@ class EventDispatcherTest extends TestCase
     public function testThrowsIfClassDoesNotExist(): void
     {
         $config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-
             public function getAdditionalServices(): array
             {
                 return ['Does-Not-Exist'];
@@ -189,17 +156,6 @@ class EventDispatcherTest extends TestCase
     public function testThrowsIfMethodIsPrivate(): void
     {
         $config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-
             public function getAdditionalServices(): array
             {
                 return [PrivateEventListener::class];
@@ -215,17 +171,6 @@ class EventDispatcherTest extends TestCase
     public function testThrowsIfMethodIsProtected(): void
     {
         $config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-
             public function getAdditionalServices(): array
             {
                 return [ProtectedEventListener::class];
@@ -246,17 +191,6 @@ class EventDispatcherTest extends TestCase
         }
 
         $config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-
             public function getAdditionalServices(): array
             {
                 return [SingleEventListener::class, MultiEventListener::class, StaticMethodListener::class];
@@ -267,8 +201,7 @@ class EventDispatcherTest extends TestCase
         $compiler->supportsCompilation();
         $compiler->compile();
 
-        $stream = $config->getFileHandle($compiler);
-        fseek($stream, 0);
+        $stream = fopen($config->getProjectRoot() . $config->getEventDispatcherFilepath(), 'rb');
         $content = stream_get_contents($stream);
         eval('?>' . $content);
     }

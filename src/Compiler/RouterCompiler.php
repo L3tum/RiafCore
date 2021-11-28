@@ -11,6 +11,7 @@ use ReflectionMethod;
 use ReflectionNamedType;
 use ReflectionParameter;
 use Riaf\Compiler\Emitter\RouterEmitter;
+use Riaf\Compiler\Router\DynamicRoute;
 use Riaf\Compiler\Router\StaticRoute;
 use Riaf\Configuration\MiddlewareDefinition;
 use Riaf\Configuration\RouterCompilerConfiguration;
@@ -22,7 +23,7 @@ use Throwable;
 class RouterCompiler extends BaseCompiler
 {
     /**
-     * @var array<string, array<int, array<string, mixed>>>
+     * @var array<string, array<int, array<string, DynamicRoute>>>
      */
     private array $routingTree = [];
 
@@ -36,8 +37,6 @@ class RouterCompiler extends BaseCompiler
      */
     private array $recordedClasses = [];
 
-    private ?RouterEmitter $emitter = null;
-
     public function supportsCompilation(): bool
     {
         return $this->config instanceof RouterCompilerConfiguration;
@@ -49,14 +48,13 @@ class RouterCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
-        $this->emitter = new RouterEmitter($this->config, $this, $this->logger);
         $this->staticRoutes['HEAD'] = [];
         $this->routingTree['HEAD'] = [];
 
         /** @var RouterCompilerConfiguration $config */
         $config = $this->config;
 
-        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getRouterFilepath(), $this)]);
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getRouterFilepath())]);
 
         foreach ($classes as $class) {
             $this->analyzeClass($class);
@@ -83,7 +81,8 @@ class RouterCompiler extends BaseCompiler
         }
 
         // TODO: Run optimizations
-        $this->emitter->emitRouter($this->staticRoutes, $this->routingTree);
+        $emitter = new RouterEmitter($this->config, $this, $this->logger);
+        $emitter->emitRouter($this->staticRoutes, $this->routingTree);
         $this->staticRoutes = [];
         $this->routingTree = [];
         $this->recordedClasses = [];
@@ -175,7 +174,7 @@ class RouterCompiler extends BaseCompiler
         }
 
         /**
-         * @var array<string, mixed> $currentRouting
+         * @var array<string, DynamicRoute> $currentRouting
          */
         $currentRouting = &$this->routingTree[$method][count($routingParts)];
 
@@ -190,26 +189,26 @@ class RouterCompiler extends BaseCompiler
                 $part = "\{$parameter=$requirement}";
 
                 if (!isset($currentRouting[$defaultKey])) {
-                    $currentRouting[$defaultKey] = [];
+                    $dynamic = new DynamicRoute();
+                    $dynamic->setParameter($parameter)->setPattern($requirement);
+                    $currentRouting[$defaultKey] = $dynamic;
                 }
 
-                $currentRouting = &$currentRouting[$defaultKey];
+                $currentRouting = &$currentRouting[$defaultKey]->next;
             }
 
             if (!isset($currentRouting[$part])) {
-                $currentRouting[$part] = ['index' => $key];
+                $currentRouting[$part] = (new DynamicRoute())->setIndex($key);
             }
 
             if ($parameter !== null) {
-                $currentRouting[$part]['parameter'] = $parameter;
-                $currentRouting[$part]['pattern'] = $requirement;
+                $currentRouting[$part]->setParameter($parameter)->setPattern($requirement);
 
                 // Check if we should capture the parameter
-                if (!isset($currentRouting[$part]['capture']) || $currentRouting[$part]['capture'] === false) {
-                    $currentRouting[$part]['capture'] = false;
+                if ($currentRouting[$part]->captureParameter === false) {
                     foreach ($this->getParameters($targetClass, $targetMethod) as $param) {
                         if ($param->name === $parameter) {
-                            $currentRouting[$part]['capture'] = true;
+                            $currentRouting[$part]->setCaptureParameter(true);
                             break;
                         }
                     }
@@ -217,16 +216,13 @@ class RouterCompiler extends BaseCompiler
             }
 
             if ($key === $lastRoute) {
-                if (isset($currentRouting[$part]['call'])) {
+                if ($currentRouting[$part]->hasTarget()) {
                     throw new RuntimeException('Duplicated route ' . $uri);
                 }
 
-                $currentRouting[$part]['call'] = ['class' => $targetClass, 'method' => $targetMethod, 'static' => $isStatic];
+                $currentRouting[$part]->setTargetClass($targetClass)->setTargetMethod($targetMethod)->setIsStaticTarget($isStatic);
             } else {
-                if (!isset($currentRouting[$part]['next'])) {
-                    $currentRouting[$part]['next'] = [];
-                }
-                $currentRouting = &$currentRouting[$part]['next'];
+                $currentRouting = &$currentRouting[$part]->next;
             }
         }
     }
@@ -334,6 +330,10 @@ class RouterCompiler extends BaseCompiler
             $defaultValue = null;
 
             if ($parameter->isDefaultValueAvailable()) {
+                /**
+                 * @var string|int|float|bool|object|array<mixed>|null $defaultValue
+                 * @noinspection PhpPluralMixedCanBeReplacedWithArrayInspection
+                 */
                 $defaultValue = $parameter->getDefaultValue();
                 if (!is_object($defaultValue) && !is_array($defaultValue)) {
                     if (is_string($defaultValue)) {

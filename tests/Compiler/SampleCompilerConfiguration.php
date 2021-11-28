@@ -46,7 +46,7 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
 
     public function getContainerFilepath(): string
     {
-        return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/Container.php';
+        return '/var/Container.php';
     }
 
     public function getRouterNamespace(): string
@@ -56,12 +56,12 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
 
     public function getRouterFilepath(): string
     {
-        return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/Router.php';
+        return '/var/Router.php';
     }
 
     public function getPreloadingFilepath(): string
     {
-        return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/preloading.php';
+        return '/var/preloading.php';
     }
 
     public function getAdditionalServices(): array
@@ -172,7 +172,7 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
 
     public function getMiddlewareDispatcherFilepath(): string
     {
-        return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/MiddlewareDispatcher.php';
+        return '/var/MiddlewareDispatcher.php';
     }
 
     public function getEventDispatcherNamespace(): string
@@ -182,7 +182,7 @@ class SampleCompilerConfiguration extends BaseConfiguration implements PreloadCo
 
     public function getEventDispatcherFilepath(): string
     {
-        return '/var/cache/' . ($_SERVER['APP_ENV'] ?? 'dev') . '/EventDispatcher.php';
+        return '/var/EventDispatcher.php';
     }
 
     public function getPreloadingBasePath(): ?string

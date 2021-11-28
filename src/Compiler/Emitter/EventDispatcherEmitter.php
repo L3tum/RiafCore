@@ -14,7 +14,7 @@ class EventDispatcherEmitter extends BaseEmitter
     /**
      * @var array<string, array<array{class: string, method: string, static: bool}>>
      */
-    private array $listeners;
+    private array $listeners = [];
 
     /**
      * @param array<string, array<array{class: string, method: string, static: bool}>> $listeners

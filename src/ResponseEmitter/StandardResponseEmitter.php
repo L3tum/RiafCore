@@ -33,21 +33,22 @@ class StandardResponseEmitter implements ResponseEmitterInterface
         $statusCode = $response->getStatusCode();
         $headers = $response->getHeaders();
 
-        foreach ($headers as $name => $values) {
-            $replace = strtolower($name) !== 'set-cookie';
+        /** @var string[] $keys */
+        $keys = array_keys($headers);
 
-            foreach ($values as $value) {
+        for ($i = 0, $count = count($keys); $i < $count; ++$i) {
+            $name = $keys[$i];
+            $values = $headers[$name];
+            for ($j = 0, $countValues = count($values); $j < $countValues; ++$j) {
                 header(
                     sprintf(
                         '%s: %s',
                         $name,
-                        $value
+                        $values[$j]
                     ),
-                    $replace,
+                    false,
                     $statusCode
                 );
-
-                $replace = false;
             }
         }
     }
@@ -79,6 +80,7 @@ class StandardResponseEmitter implements ResponseEmitterInterface
     private function flushOutputBuffers(): void
     {
         if (!in_array(PHP_SAPI, ['cli', 'phpdbg'], true)) {
+            /** @var array<int, array{del: bool, flags: int}> $status */
             $status = ob_get_status(true);
             $level = count($status);
             $flags = PHP_OUTPUT_HANDLER_REMOVABLE | PHP_OUTPUT_HANDLER_FLUSHABLE;

@@ -93,10 +93,10 @@ class CoreTest extends TestCase
             ->withConsecutive([RequestHandlerInterface::class], [EventDispatcherInterface::class], [ResponseEmitterInterface::class], [LoggerInterface::class])
             ->willReturnOnConsecutiveCalls($this->middlewareDispatcher, $eventDispatcher, $responseEmitter, $logger);
         $this->container
-            ->expects($this->exactly(4))
+            ->expects($this->exactly(6))
             ->method('has')
-            ->withConsecutive([RequestHandlerInterface::class], [EventDispatcherInterface::class], [ResponseEmitterInterface::class], [LoggerInterface::class])
-            ->willReturn(true);
+            ->withConsecutive(["NotFound\MiddlewareDispatcher"], ["NotFound\Router"], [RequestHandlerInterface::class], [EventDispatcherInterface::class], [ResponseEmitterInterface::class], [LoggerInterface::class])
+            ->willReturnOnConsecutiveCalls(false, false, true, true, true, true);
         $this->core = new Core(new $config(), $this->container);
     }
 }

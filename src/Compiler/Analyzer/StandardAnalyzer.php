@@ -85,6 +85,7 @@ class StandardAnalyzer implements AnalyzerInterface
             throw new Exception();
         }
 
+        /** @var array{autoload: array{psr-4: array<string, string|string[]>}} $composerData */
         $composerData = json_decode($composerJsonData, true, 512, JSON_THROW_ON_ERROR);
 
         if (!isset($composerData['autoload'])) {

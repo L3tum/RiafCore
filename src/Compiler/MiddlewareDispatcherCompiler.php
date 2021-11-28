@@ -22,11 +22,11 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
-        $this->emitter = new MiddlewareDispatcherEmitter($this->config, $this, $this->logger);
+        $this->emitter = $emitter = new MiddlewareDispatcherEmitter($this->config, $this, $this->logger);
         /** @var MiddlewareDispatcherCompilerConfiguration $config */
         $config = $this->config;
 
-        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getMiddlewareDispatcherFilepath(), $this)]);
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getMiddlewareDispatcherFilepath())]);
         /** @var MiddlewareDefinition[] $middlewares */
         $middlewares = [];
 
@@ -65,7 +65,7 @@ class MiddlewareDispatcherCompiler extends BaseCompiler
             return ($a->getPriority() <=> $b->getPriority()) * -1;
         });
 
-        $this->emitter->emitMiddlewareDispatcher($middlewares);
+        $emitter->emitMiddlewareDispatcher($middlewares);
         $this->recordedMiddlewares = [];
         unset($middlewares);
 

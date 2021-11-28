@@ -230,19 +230,6 @@ class RouterCompilerTest extends TestCase
             return;
         }
 
-        $config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-        };
-
         $analyzer = $this->createMock(AnalyzerInterface::class);
         $mockingClass = new class() {
             #[Route('/')]
@@ -297,15 +284,14 @@ class RouterCompilerTest extends TestCase
         self::$mockingClass = $mockingClass;
         self::$requestHandler = $this->createMock(RequestHandlerInterface::class);
 
+        $config = new SampleCompilerConfiguration();
         $analyzer->expects(self::once())->method('getUsedClasses')->with($config->getProjectRoot())->willReturn(new ArrayIterator([new ReflectionClass($mockingClass), new ReflectionClass(StaticFunction::class)]));
 
         $compiler = new RouterCompiler($config, $analyzer);
         $compiler->addRoute(new Route('/manually/added/route'), 'manually::added');
         $compiler->supportsCompilation();
         $compiler->compile();
-
-        $stream = $config->getFileHandle($compiler);
-        fseek($stream, 0);
+        $stream = fopen($config->getProjectRoot() . $config->getRouterFilepath(), 'rb');
         $content = stream_get_contents($stream);
 //        file_put_contents(dirname(__DIR__) . '/dev_Router.php', $content);
         eval('?>' . $content);
