@@ -25,8 +25,6 @@ class PreloadingCompiler extends BaseCompiler
      */
     private array $preloadedFiles = [];
 
-    private ?PreloadingEmitter $emitter = null;
-
     public function supportsCompilation(): bool
     {
         return $this->config instanceof PreloadCompilerConfiguration;
@@ -35,11 +33,10 @@ class PreloadingCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
-        $this->emitter = new PreloadingEmitter($this->config, $this, $this->logger);
         /** @var PreloadCompilerConfiguration $config */
         $config = $this->config;
 
-        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getPreloadingFilepath(), $this)]);
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getPreloadingFilepath())]);
 
         foreach ($classes as $class) {
             $this->preloadClass($class);
@@ -97,7 +94,8 @@ class PreloadingCompiler extends BaseCompiler
             }
         }
 
-        $this->emitter->emitPreloading($this->preloadedFiles);
+        $emitter = new PreloadingEmitter($this->config, $this, $this->logger);
+        $emitter->emitPreloading($this->preloadedFiles);
         $this->preloadedFiles = [];
 
         $this->timing->stop(self::class);

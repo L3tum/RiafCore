@@ -10,17 +10,13 @@ class PreloadingCompilerTest extends TestCase
 {
     private PreloadingCompiler $compiler;
 
-    /**
-     * @var SampleCompilerConfiguration
-     */
-    private $config;
+    private SampleCompilerConfiguration $config;
 
     public function testUsesOpCacheCompileFile(): void
     {
         $this->compiler->supportsCompilation();
         $this->compiler->compile();
-        $stream = $this->config->getFileHandle($this->compiler);
-        fseek($stream, 0);
+        $stream = fopen($this->config->getProjectRoot() . $this->config->getPreloadingFilepath(), 'rb');
         $content = stream_get_contents($stream);
         $lines = array_slice(explode("\n", $content), 1);
         foreach ($lines as $line) {
@@ -33,8 +29,7 @@ class PreloadingCompilerTest extends TestCase
     public function testAddsAdditionalFiles(): void
     {
         $this->compiler->compile();
-        $stream = $this->config->getFileHandle($this->compiler);
-        fseek($stream, 0);
+        $stream = fopen($this->config->getProjectRoot() . $this->config->getPreloadingFilepath(), 'rb');
         $content = stream_get_contents($stream);
         self::assertStringContainsString('opcache_compile_file("' . $this->config->getProjectRoot() . '/bin/compile");', $content);
     }
@@ -42,8 +37,7 @@ class PreloadingCompilerTest extends TestCase
     public function testAddsFilesFromVendor(): void
     {
         $this->compiler->compile();
-        $stream = $this->config->getFileHandle($this->compiler);
-        fseek($stream, 0);
+        $stream = fopen($this->config->getProjectRoot() . $this->config->getPreloadingFilepath(), 'rb');
         $content = stream_get_contents($stream);
         self::assertStringContainsString('opcache_compile_file("' . $this->config->getProjectRoot() . '/vendor/', $content);
     }
@@ -51,17 +45,6 @@ class PreloadingCompilerTest extends TestCase
     public function testReplacesProjectRootWithBasePath(): void
     {
         $config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-
             public function getPreloadingBasePath(): ?string
             {
                 return '/var/some/non/existing/path';
@@ -70,8 +53,7 @@ class PreloadingCompilerTest extends TestCase
 
         $compiler = new PreloadingCompiler($config);
         $compiler->compile();
-        $stream = $config->getFileHandle($compiler);
-        fseek($stream, 0);
+        $stream = fopen($config->getProjectRoot() . $config->getPreloadingFilepath(), 'rb');
         $content = stream_get_contents($stream);
         self::assertStringContainsString('opcache_compile_file("' . $config->getPreloadingBasePath() . '/vendor/', $content);
         self::assertStringNotContainsString($config->getProjectRoot(), $content);
@@ -79,28 +61,16 @@ class PreloadingCompilerTest extends TestCase
 
     public function testDoesNotAddAdditionalFileIfAlreadyPreloaded(): void
     {
-        $this->config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-
+        $config = new class() extends SampleCompilerConfiguration {
             public function getAdditionalPreloadedFiles(): array
             {
                 return ['src/Core.php'];
             }
         };
 
-        $this->compiler = new PreloadingCompiler($this->config);
-        $this->compiler->compile();
-        $stream = $this->config->getFileHandle($this->compiler);
-        fseek($stream, 0);
+        $compiler = new PreloadingCompiler($config);
+        $compiler->compile();
+        $stream = fopen($config->getProjectRoot() . $config->getPreloadingFilepath(), 'rb');
         $content = stream_get_contents($stream);
         $lines = array_slice(explode("\n", $content), 1);
         $foundOnce = false;
@@ -121,19 +91,7 @@ class PreloadingCompilerTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-        };
-
+        $this->config = new SampleCompilerConfiguration();
         $this->compiler = new PreloadingCompiler($this->config);
     }
 }

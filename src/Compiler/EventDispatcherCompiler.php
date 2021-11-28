@@ -22,19 +22,16 @@ class EventDispatcherCompiler extends BaseCompiler
     /** @var array<string, bool> */
     private array $recordedClasses = [];
 
-    private ?EventDispatcherEmitter $emitter = null;
-
     /**
      * @throws Exception
      */
     public function compile(): bool
     {
         $this->timing->start(self::class);
-        $this->emitter = new EventDispatcherEmitter($this->config, $this, $this->logger);
         /** @var EventDispatcherCompilerConfiguration $config */
         $config = $this->config;
 
-        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getEventDispatcherFilepath(), $this)]);
+        $classes = $this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getEventDispatcherFilepath())]);
 
         foreach ($classes as $class) {
             $this->analyzeClass($class);
@@ -62,7 +59,8 @@ class EventDispatcherCompiler extends BaseCompiler
             $this->analyzeClass(new ReflectionClass($className));
         }
 
-        $this->emitter->emitEventDispatcher($this->listeners);
+        $emitter = new EventDispatcherEmitter($this->config, $this, $this->logger);
+        $emitter->emitEventDispatcher($this->listeners);
         $this->listeners = [];
         $this->recordedClasses = [];
 

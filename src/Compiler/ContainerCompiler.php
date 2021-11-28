@@ -21,7 +21,7 @@ use Throwable;
 
 class ContainerCompiler extends BaseCompiler
 {
-    /** @var string[] */
+    /** @var array<string, string> */
     private array $constructionMethodCache = [];
 
     /** @var array<string, ServiceDefinition|false> */
@@ -29,8 +29,6 @@ class ContainerCompiler extends BaseCompiler
 
     /** @var array<string, true> */
     private array $manuallyAddedServices = [];
-
-    private ?ContainerEmitter $emitter = null;
 
     public function supportsCompilation(): bool
     {
@@ -43,7 +41,6 @@ class ContainerCompiler extends BaseCompiler
     public function compile(): bool
     {
         $this->timing->start(self::class);
-        $this->emitter = new ContainerEmitter($this->config, $this, $this->logger);
         /** @var ContainerCompilerConfiguration $config */
         $config = $this->config;
 
@@ -104,7 +101,7 @@ class ContainerCompiler extends BaseCompiler
         }
 
         // Lastly collect all project-related classes
-        foreach ($this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getContainerFilepath(), $this)]) as $class) {
+        foreach ($this->analyzer->getUsedClasses($this->config->getProjectRoot(), [$this->getOutputFile($config->getContainerFilepath())]) as $class) {
             /* @var ReflectionClass $class */
             if (!isset($this->services[$class->name])) {
                 $this->analyzeClass($class->name, $class);
@@ -189,7 +186,8 @@ class ContainerCompiler extends BaseCompiler
         }
 
         $preloadingCompiler = new PreloadingCompiler($this->config, $this->analyzer, $this->timing, $this->logger);
-        $this->emitter->emitContainer($this->services, $this->constructionMethodCache, $this->manuallyAddedServices, $preloadingCompiler);
+        $emitter = new ContainerEmitter($this->config, $this, $this->logger);
+        $emitter->emitContainer($this->services, $this->constructionMethodCache, $this->manuallyAddedServices, $preloadingCompiler);
         $this->services = [];
         $this->constructionMethodCache = [];
         $this->manuallyAddedServices = [];
@@ -247,10 +245,11 @@ class ContainerCompiler extends BaseCompiler
         $parameters = $this->services[$key]->getParameters();
         foreach ($parameters as $parameter) {
             while ($parameter !== null) {
-                if ($parameter->isInjected() && !isset($this->services[$parameter->getValue()])) {
-                    if (class_exists($parameter->getValue())) {
-                        /** @noinspection PhpUnhandledExceptionInspection */
-                        $this->analyzeClass($parameter->getValue(), new ReflectionClass($parameter->getValue()));
+                if ($parameter->isInjected()) {
+                    /** @var string $value */
+                    $value = $parameter->getValue();
+                    if (!isset($this->services[$value]) && class_exists($value)) {
+                        $this->analyzeClass($value, new ReflectionClass($value));
                     }
                 }
 

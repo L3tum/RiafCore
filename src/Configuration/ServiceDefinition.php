@@ -9,16 +9,34 @@ use ReflectionClass;
 
 final class ServiceDefinition
 {
+    /**
+     * @var ParameterDefinition[]
+     */
+    private array $parameters;
+
+    /**
+     * @var string[]
+     */
+    private array $aliases;
+
+    /**
+     * @param string                $className
+     * @param ParameterDefinition[] $parameters
+     * @param string[]              $aliases
+     * @param bool                  $singleton
+     * @param string|null           $staticFactoryClass
+     * @param string|null           $staticFactoryMethod
+     */
     public function __construct(
         private string $className,
-        /** @var ParameterDefinition[] $parameters */
-        private array $parameters = [],
-        /** @var string[] $aliases */
-        private array $aliases = [],
+        array $parameters = [],
+        array $aliases = [],
         private bool $singleton = true,
         private ?string $staticFactoryClass = null,
         private ?string $staticFactoryMethod = null
     ) {
+        $this->parameters = $parameters;
+        $this->aliases = $aliases;
     }
 
     #[Pure]
@@ -28,7 +46,15 @@ final class ServiceDefinition
     }
 
     /**
-     * @param array<string, array>|ParameterDefinition[] $parameters
+     * @return ParameterDefinition[]
+     */
+    public function getParameters(): array
+    {
+        return $this->parameters;
+    }
+
+    /**
+     * @param array<string, array{name: string, class: string, env: string, value: mixed, fallback: array<string, mixed>}>|ParameterDefinition[] $parameters
      *
      * @return $this
      */
@@ -43,14 +69,6 @@ final class ServiceDefinition
         }
 
         return $this;
-    }
-
-    /**
-     * @return ParameterDefinition[]
-     */
-    public function getParameters(): array
-    {
-        return $this->parameters;
     }
 
     #[Pure]
@@ -74,6 +92,14 @@ final class ServiceDefinition
     }
 
     /**
+     * @return string[]
+     */
+    public function getAliases(): array
+    {
+        return $this->aliases;
+    }
+
+    /**
      * @param string|string[] $aliases
      *
      * @return $this
@@ -83,14 +109,6 @@ final class ServiceDefinition
         $this->aliases = is_string($aliases) ? [$aliases] : $aliases;
 
         return $this;
-    }
-
-    /**
-     * @return string[]
-     */
-    public function getAliases(): array
-    {
-        return $this->aliases;
     }
 
     /**

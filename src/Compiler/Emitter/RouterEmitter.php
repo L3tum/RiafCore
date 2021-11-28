@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace Riaf\Compiler\Emitter;
 
 use Exception;
+use Riaf\Compiler\Router\DynamicRoute;
 use Riaf\Compiler\Router\StaticRoute;
+use Riaf\Compiler\RouterCompiler;
 use Riaf\Configuration\RouterCompilerConfiguration;
 
 class RouterEmitter extends BaseEmitter
 {
     /**
-     * @param array<string, array<string, StaticRoute>>       $staticRoutes
-     * @param array<string, array<int, array<string, mixed>>> $routingTree
+     * @param array<string, array<string, StaticRoute>>              $staticRoutes
+     * @param array<string, array<int, array<string, DynamicRoute>>> $routingTree
      *
      * @throws Exception
      */
@@ -66,8 +68,8 @@ HEADER
     }
 
     /**
-     * @param array<string, array<string, StaticRoute>>       $staticRoutes
-     * @param array<string, array<int, array<string, mixed>>> $routingTree
+     * @param array<string, array<string, StaticRoute>>              $staticRoutes
+     * @param array<string, array<int, array<string, DynamicRoute>>> $routingTree
      */
     private function emitStaticHandler(array &$staticRoutes, array &$routingTree): void
     {
@@ -94,12 +96,9 @@ HEADER
                 foreach ($routeCollection as $route => $staticRoute) {
                     $targetClass = $staticRoute->getTargetClass();
                     $targetMethod = $staticRoute->getTargetMethod();
-                    /**
-                     * @noinspection PhpPossiblePolymorphicInvocationInspection
-                     * @psalm-suppress UndefinedMethod
-                     * @phpstan-ignore-next-line
-                     */
-                    $params = implode(', ', $this->compiler->generateParams($targetClass, $targetMethod));
+                    /** @var RouterCompiler $compiler */
+                    $compiler = $this->compiler;
+                    $params = implode(', ', $compiler->generateParams($targetClass, $targetMethod));
 
                     if ($staticRoute->isStatic()) {
                         $this->writeLine("\"$route\" => \\$targetClass::$targetMethod($params),", 4);
@@ -133,18 +132,15 @@ HEADER
         $this->writeLine('}', 1);
     }
 
-    /**
-     * @param array<string, array<mixed>> $tree
-     * @noinspection PhpPluralMixedCanBeReplacedWithArrayInspection
-     */
-    private function hasRoutesWithMethod(array &$tree, string $method): bool
+    /** @phpstan-ignore-next-line */
+    private function hasRoutesWithMethod(array $tree, string $method): bool
     {
-        return isset($tree[$method]) && count($tree[$method]) > 0;
+        return isset($tree[$method]) && is_array($tree[$method]) && count($tree[$method]) > 0;
     }
 
     /**
-     * @param array<string, array<string, StaticRoute>>       $staticRoutes
-     * @param array<string, array<int, array<string, mixed>>> $routingTree
+     * @param array<string, array<string, StaticRoute>>              $staticRoutes
+     * @param array<string, array<int, array<string, DynamicRoute>>> $routingTree
      */
     private function emitStaticMatcher(array &$staticRoutes, array &$routingTree): void
     {
@@ -198,8 +194,8 @@ HEADER
     }
 
     /**
-     * @param array<string, array<int, array<string, mixed>>> $routingTree
-     * @param array<string, array<string, StaticRoute>>       $staticRoutes
+     * @param array<string, array<int, array<string, DynamicRoute>>> $routingTree
+     * @param array<string, array<string, StaticRoute>>              $staticRoutes
      */
     private function emitDynamicHandler(array &$routingTree, array &$staticRoutes): void
     {
@@ -258,12 +254,11 @@ HEADER
     }
 
     /**
-     * @param array<string, mixed>  $route
      * @param array<string, string> $capturedParams
      */
     private function walkRoutingTree(
         string $uri,
-        array $route,
+        DynamicRoute $route,
         int $indentation,
         bool $firstRoute,
         bool $lastRoute,
@@ -271,14 +266,14 @@ HEADER
         bool &$hasGeneratedRoute,
         bool $generateCall
     ): void {
-        $index = $route['index'];
+        $index = $route->index;
 
         if ($firstRoute) {
-            if (!isset($route['pattern']) && !isset($route['parameter'])) {
+            if ($route->pattern === null && $route->parameter === null) {
                 $this->writeLine("match(\$uriParts[$index])");
                 $this->writeLine('{', $indentation);
                 ++$indentation;
-            } elseif (isset($route['pattern'])) {
+            } elseif ($route->pattern !== null) {
                 $this->writeLine('match(true)');
                 $this->writeLine('{', $indentation);
                 ++$indentation;
@@ -286,19 +281,16 @@ HEADER
         }
 
         // Parameter
-        if (isset($route['parameter'])) {
-            $parameter = (string) $route['parameter'];
-            $pattern = $route['pattern'] ?? null;
-            $capture = $route['capture'];
-
-            if ($pattern !== null) { // Parameter with Requirement
-                $this->write("preg_match(\"/^$pattern$/\", \$uriParts[$index], \$matches$index) === 1 => ", $indentation);
-                if ($capture) {
-                    $capturedParams[$parameter] = "\$matches{$index}[0]";
+        // TODO: This doesn't currently work (or above the firstRoute block)
+        if ($route->parameter !== null) {
+            if ($route->pattern !== null) { // Parameter with Requirement
+                $this->write("preg_match(\"/^{$route->pattern}$/\", \$uriParts[$index], \$matches$index) === 1 => ", $indentation);
+                if ($route->captureParameter) {
+                    $capturedParams[$route->parameter] = "\$matches{$index}[0]";
                 }
                 $hasGeneratedRoute = true;
-            } elseif ($capture) { // Parameter without requirement
-                $capturedParams[$parameter] = "\$uriParts[$index]";
+            } elseif ($route->captureParameter) { // Parameter without requirement
+                $capturedParams[$route->parameter] = "\$uriParts[$index]";
             }
         } // Normal route
         else {
@@ -306,19 +298,18 @@ HEADER
             $hasGeneratedRoute = true;
         }
 
-        if (isset($route['call'])) {
-            $class = $route['call']['class'];
-            $method = $route['call']['method'];
+        if ($route->hasTarget()) {
+            /** @var string $class */
+            $class = $route->targetClass;
+            /** @var string $method */
+            $method = $route->targetMethod;
 
             if ($generateCall) {
-                /**
-                 * @noinspection PhpPossiblePolymorphicInvocationInspection
-                 * @psalm-suppress UndefinedMethod
-                 * @phpstan-ignore-next-line
-                 */
-                $params = implode(', ', $this->compiler->generateParams($class, $method, $capturedParams));
+                /** @var RouterCompiler $compiler */
+                $compiler = $this->compiler;
+                $params = implode(', ', $compiler->generateParams($class, $method, $capturedParams));
 
-                if ($route['call']['static']) {
+                if ($route->isStaticTarget) {
                     $this->writeLine("\\$class::$method($params),");
                 } else {
                     $this->writeLine("\$this->container->get(\"$class\")->$method($params),");
@@ -330,16 +321,16 @@ HEADER
 
         $needsDefaultArm = $lastRoute;
 
-        if (isset($route['next'])) {
+        if ($route->hasNext()) {
             $generatedLeaves = 0;
             $regexes = [];
-            $firstUri = array_key_first($route['next']);
-            $lastUri = array_key_last($route['next']);
+            $firstUri = array_key_first($route->next);
+            $lastUri = array_key_last($route->next);
             $hasGeneratedSubRoute = false;
-            foreach ($route['next'] as $newUri => $newRoute) {
+            foreach ($route->next as $newUri => $newRoute) {
                 $hasGeneratedSubRouteTemp = $hasGeneratedSubRoute;
                 if ($newUri === 'zzz_default_zzz') {
-                    $regexes = $newRoute;
+                    $regexes = $newRoute->next;
                     continue;
                 }
                 $this->walkRoutingTree(
@@ -405,8 +396,8 @@ HEADER
     }
 
     /**
-     * @param array<string, array<int, array<string, mixed>>> $routingTree
-     * @param array<string, array<string, StaticRoute>>       $staticRoutes
+     * @param array<string, array<int, array<string, DynamicRoute>>> $routingTree
+     * @param array<string, array<string, StaticRoute>>              $staticRoutes
      */
     private function emitDynamicMatcher(array &$routingTree, array &$staticRoutes): void
     {

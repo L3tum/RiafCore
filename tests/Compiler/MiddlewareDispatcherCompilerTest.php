@@ -57,17 +57,6 @@ class MiddlewareDispatcherCompilerTest extends TestCase
         }
 
         $config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($this->stream === null) {
-                    $this->stream = fopen('php://memory', 'wb+');
-                }
-
-                return $this->stream;
-            }
-
             public function getAdditionalServices(): array
             {
                 return [
@@ -81,8 +70,7 @@ class MiddlewareDispatcherCompilerTest extends TestCase
         $compiler->supportsCompilation();
         $compiler->compile();
 
-        $stream = $config->getFileHandle($compiler);
-        fseek($stream, 0);
+        $stream = fopen($config->getProjectRoot() . $config->getMiddlewareDispatcherFilepath(), 'rb');
         $content = stream_get_contents($stream);
         eval('?>' . $content);
     }

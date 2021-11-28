@@ -34,7 +34,8 @@
     "infection/infection": "^0.24",
     "monolog/monolog": "^2.3",
     "opis/closure": "^3.6",
-    "friendsofphp/php-cs-fixer": "^3.3"
+    "friendsofphp/php-cs-fixer": "^3.3",
+    "lctrs/psalm-psr-container-plugin": "^1.4"
   },
   "autoload": {
     "psr-4": {
@@ -48,9 +49,9 @@
   },
   "scripts": {
     "psalm": "vendor/bin/psalm --show-info=true --no-diff --threads=16",
-    "phpstan": "vendor/bin/phpstan analyze -l 7 src",
-    "test": "vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox tests",
-    "phpunit": "XDEBUG_MODE=coverage vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox --coverage-text tests",
+    "phpstan": "vendor/bin/phpstan analyze -l 8 src",
+    "test": "mkdir -p var && vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox tests",
+    "phpunit": "mkdir -p var && XDEBUG_MODE=coverage vendor/bin/phpunit --bootstrap vendor/autoload.php --testdox --coverage-text tests",
     "phpcs": "vendor/bin/php-cs-fixer fix",
     "infection": "XDEBUG_MODE=coverage vendor/bin/infection --show-mutations --only-covered",
     "compile": "bin/compile \"\\Riaf\\Compiler\\SampleCompilerConfiguration\" --debug"

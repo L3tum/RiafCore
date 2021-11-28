@@ -22,7 +22,7 @@ class ContainerEmitter extends BaseEmitter
     /**
      * @var array<string, true>
      */
-    private array $manuallyAddedServices;
+    private array $manuallyAddedServices = [];
 
     /**
      * @param array<string, ServiceDefinition|false> $services
@@ -202,15 +202,23 @@ HEADER
         if ($parameter->isConstantPrimitive()) {
             return (string) $parameter->getValue();
         } elseif ($parameter->isString()) {
-            return '"' . $parameter->getValue() . '"';
+            /** @var string $value */
+            $value = $parameter->getValue();
+
+            return '"' . $value . '"';
         } elseif ($parameter->isNamedConstant()) {
-            return "{$parameter->getValue()}";
+            /** @var string $value */
+            $value = $parameter->getValue();
+
+            return "$value";
         } elseif ($parameter->isNull()) {
             return 'null';
         } elseif ($parameter->isBool()) {
             return $parameter->getValue() ? 'true' : 'false';
         } elseif ($parameter->isEnv()) {
-            $generated = '$_SERVER["' . $parameter->getValue() . '"]';
+            /** @var string $value */
+            $value = $parameter->getValue();
+            $generated = '$_SERVER["' . $value . '"]';
             $fallback = $parameter->getFallback();
 
             if ($fallback !== null) {
@@ -223,6 +231,7 @@ HEADER
 
             return $generated;
         } elseif ($parameter->isInjected()) {
+            /** @var string $value */
             $value = $parameter->getValue();
             if (isset($this->services[$value]) && $this->services[$value] !== false) {
                 // Check that we can generate the constructor for this service
@@ -240,7 +249,9 @@ HEADER
             return $this->createGetterFromParameter($fallback, $resolvingStack);
         } elseif ($parameter->isArray()) {
             $generated = '';
-            foreach ($parameter->getValue() as $packed) {
+            /** @var array<array{key: ParameterDefinition, value: ParameterDefinition}> $values */
+            $values = $parameter->getValue();
+            foreach ($values as $packed) {
                 $key = $this->createGetterFromParameter($packed['key'], $resolvingStack);
                 $value = $this->createGetterFromParameter($packed['value'], $resolvingStack);
 
@@ -257,6 +268,7 @@ HEADER
         } elseif ($parameter->isObject()) {
             return "\unserialize('{$parameter->getValue()}')";
         } elseif ($parameter->isClosure()) {
+            /** @var array{closure: string, parameters: array<ParameterDefinition>} $value */
             $value = $parameter->getValue();
             $closure = $value['closure'];
             $parameters = $value['parameters'];

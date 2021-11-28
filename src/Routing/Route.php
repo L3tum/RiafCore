@@ -31,7 +31,7 @@ class Route
     }
 
     /**
-     * @return string[]
+     * @return array<string, string>
      */
     public function getRequirements(): array
     {

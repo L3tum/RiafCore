@@ -37,7 +37,7 @@ final class ParameterDefinition implements JsonSerializable
     }
 
     /**
-     * @param array<string, mixed> $parameter
+     * @param array{name: string, class: string, env: string, value: mixed, fallback: array<string, mixed>} $parameter
      *
      * @return ParameterDefinition
      */
@@ -50,12 +50,13 @@ final class ParameterDefinition implements JsonSerializable
         } elseif (isset($parameter['env'])) {
             $param = ParameterDefinition::createEnv($name, $parameter['env']);
         } else {
-            $value = $parameter['value'];
-            $param = self::fromValue($name, $value);
+            $param = self::fromValue($name, $parameter['value']);
         }
 
         if (isset($parameter['fallback'])) {
-            $param = $param->withFallback(self::fromArray($parameter['fallback']));
+            /** @var array{name: string, class: string, env: string, value: mixed, fallback: array<string, mixed>} $fallback */
+            $fallback = $parameter['fallback'];
+            $param = $param->withFallback(self::fromArray($fallback));
         }
 
         return $param;
@@ -73,6 +74,12 @@ final class ParameterDefinition implements JsonSerializable
         return new self($name, $value, isEnv: true);
     }
 
+    /**
+     * @param string|int|bool|float|object|array<array-key, mixed>|mixed|null $value
+     *
+     * @return static
+     * @noinspection PhpPluralMixedCanBeReplacedWithArrayInspection
+     */
     public static function fromValue(string $name, mixed $value): self
     {
         if (is_string($value)) {
@@ -88,6 +95,12 @@ final class ParameterDefinition implements JsonSerializable
         } elseif (is_array($value)) {
             $values = [];
 
+            /**
+             * @psalm-suppress MixedAssignment
+             *
+             * @var array-key $key
+             * @var mixed     $item
+             */
             foreach ($value as $key => $item) {
                 $values[] = ['key' => self::fromValue("$key", $key), 'value' => self::fromValue("$key", $item)];
             }
@@ -190,7 +203,6 @@ final class ParameterDefinition implements JsonSerializable
 
         // Default value
         if ($parameter->isDefaultValueAvailable()) {
-            $value = $parameter->getDefaultValue();
             // Named constant
             if ($parameter->isDefaultValueConstant() && $parameter->getDefaultValueConstantName() !== null) {
                 /** @noinspection PhpUnhandledExceptionInspection */
@@ -203,7 +215,7 @@ final class ParameterDefinition implements JsonSerializable
                 $param = $param->withFallback(ParameterDefinition::createNamedConstant($parameter->name, $name));
             } else {
                 try {
-                    $param = $param->withFallback(ParameterDefinition::fromValue($parameter->name, $value));
+                    $param = $param->withFallback(ParameterDefinition::fromValue($parameter->name, $parameter->getDefaultValue()));
                 } catch (Exception) {
                     // Intentionally left blank
                 }
@@ -264,8 +276,26 @@ final class ParameterDefinition implements JsonSerializable
 
     private static function isSerializable(mixed $value): bool
     {
-        if (is_string($value) || is_int($value) || null === $value || is_float($value) || is_bool($value) || is_array($value)) {
+        if (is_string($value) || is_int($value) || null === $value || is_float($value) || is_bool($value)) {
             return true;
+        }
+
+        if (is_array($value)) {
+            /**
+             * @psalm-suppress MixedAssignment
+             */
+            foreach ($value as $item) {
+                if (!self::isSerializable($item)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        // Technically $value will always be an object at this point, but Psalm is unhappy.
+        if (!is_object($value)) {
+            return false;
         }
 
         $reflection = new ReflectionClass($value);

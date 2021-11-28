@@ -10,7 +10,7 @@ use ReflectionClass;
 interface AnalyzerInterface
 {
     /**
-     * @param array<string|null> $forbiddenFiles
+     * @param string[] $forbiddenFiles
      *
      * @return Iterator<ReflectionClass<object>>
      */

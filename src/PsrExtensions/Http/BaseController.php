@@ -18,8 +18,8 @@ abstract class BaseController
     }
 
     /**
-     * @param string|object|mixed[]       $data
-     * @param array<string, string|array> $headers
+     * @param string|object|mixed[]          $data
+     * @param array<string, string|string[]> $headers
      *
      * @throws JsonException
      * @noinspection PhpPluralMixedCanBeReplacedWithArrayInspection
@@ -34,8 +34,8 @@ abstract class BaseController
     }
 
     /**
-     * @param string|object|mixed[]       $data
-     * @param array<string, string|array> $headers
+     * @param string|object|mixed[]          $data
+     * @param array<string, string|string[]> $headers
      *
      * @throws JsonException
      * @noinspection PhpPluralMixedCanBeReplacedWithArrayInspection

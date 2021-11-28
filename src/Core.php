@@ -30,18 +30,17 @@ class Core extends AbstractCore implements RequestHandlerInterface
      * @param BaseConfiguration       $config    The config
      * @param ContainerInterface|null $container The container to fetch services from
      */
-    public function __construct(
-        BaseConfiguration $config,
-        ?ContainerInterface $container = null,
-    ) {
+    public function __construct(BaseConfiguration $config, ?ContainerInterface $container = null)
+    {
         parent::__construct($config, $container);
         // Unset both as the properties should be used
         unset($config, $container);
-        /** @psalm-suppress PossiblyNullReference It's checked in AbstractCore and an exception thrown if null. */
+
+        /** @psalm-suppress MixedAssignment Come on Psalm, I've tried Docblocks, the variable is typed, get it together */
         $this->eventDispatcher = $this->container->has(EventDispatcherInterface::class) ? $this->container->get(EventDispatcherInterface::class) : null;
-        /** @psalm-suppress PossiblyNullReference It's checked in AbstractCore and an exception thrown if null. */
+        /** @psalm-suppress MixedAssignment Come on Psalm, I've tried Docblocks, the variable is typed, get it together */
         $this->responseEmitter = $this->container->has(ResponseEmitterInterface::class) ? $this->container->get(ResponseEmitterInterface::class) : null;
-        /** @psalm-suppress PossiblyNullReference It's checked in AbstractCore and an exception thrown if null. */
+        /** @psalm-suppress MixedAssignment Come on Psalm, I've tried Docblocks, the variable is typed, get it together */
         $this->logger = $this->container->has(LoggerInterface::class) ? $this->container->get(LoggerInterface::class) : new NullLogger();
         $this->fireBootEvent();
     }

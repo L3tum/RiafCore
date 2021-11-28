@@ -6,6 +6,7 @@ namespace Riaf;
 
 use Exception;
 use Psr\Container\ContainerInterface;
+use ReflectionClass;
 use Riaf\Compiler\Analyzer\StandardAnalyzer;
 use Riaf\Compiler\BaseCompiler;
 use Riaf\Compiler\ContainerCompiler;
@@ -30,9 +31,9 @@ class CoreBuilder extends Core
     /**
      * @throws Exception
      */
-    public function __construct(protected BaseConfiguration $config, protected ?ContainerInterface $container = null)
+    public function __construct(BaseConfiguration $config, ?ContainerInterface $container = null)
     {
-        if ($this->config->isDevelopmentMode()) {
+        if ($config->isDevelopmentMode()) {
             $compilers = array_merge($config->getAdditionalCompilers(), self::COMPILERS);
             $timing = new Timing(new SystemClock());
             $analyzer = new StandardAnalyzer($timing);
@@ -42,8 +43,23 @@ class CoreBuilder extends Core
                     throw new RuntimeException("Missing compiler $compilerClass");
                 }
 
+                $reflection = new ReflectionClass($compilerClass);
+                $extension = $reflection->getParentClass();
+                $found = false;
+
+                while ($extension !== false && $found === false) {
+                    if ($extension->getName() === BaseCompiler::class) {
+                        $found = true;
+                    }
+                    $extension = $extension->getParentClass();
+                }
+
+                if (!$found) {
+                    throw new RuntimeException("$compilerClass has to extend BaseCompiler!");
+                }
+
                 /** @var BaseCompiler $compiler */
-                $compiler = new $compilerClass($analyzer, $timing, $config);
+                $compiler = $reflection->newInstance($analyzer, $timing, $config);
                 if ($compiler->supportsCompilation()) {
                     $compiler->compile();
                 }

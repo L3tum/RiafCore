@@ -9,7 +9,6 @@ use ArrayIterator;
 use DateTimeImmutable;
 use Nyholm\Psr7\Request;
 use Nyholm\Psr7Server\ServerRequestCreatorInterface;
-use Opis\Closure\ClosureStream;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Container\NotFoundExceptionInterface;
@@ -231,7 +230,6 @@ class ContainerCompilerTest extends TestCase
     /** @runInSeparateProcess */
     public function testSupportsClosureAsParameter(): void
     {
-        ClosureStream::register();
         /** @var ArrayIterator $iterator */
         $iterator = self::$container->get('serializable_closure');
         $iterator->rewind();
@@ -241,7 +239,6 @@ class ContainerCompilerTest extends TestCase
     /** @runInSeparateProcess */
     public function testSupportsClosureAsParameterWithParameters(): void
     {
-        ClosureStream::register();
         /** @var ArrayIterator $iterator */
         $iterator = self::$container->get('serializable_closure_parameters');
         $iterator->rewind();
@@ -255,27 +252,11 @@ class ContainerCompilerTest extends TestCase
      */
     public function setUp(): void
     {
+        $this->config = new SampleCompilerConfiguration();
         // Why? Well, setUpBeforeClasses is not counted for coverage..
-        if (class_exists('\\Riaf\\Container', false)) {
+        if (class_exists($this->config->getContainerNamespace() . '\\Container', false)) {
             return;
         }
-
-        $this->config = new class() extends SampleCompilerConfiguration {
-            private $stream = null;
-
-            public function getFileHandle(BaseCompiler $compiler)
-            {
-                if ($compiler instanceof ContainerCompiler) {
-                    if ($this->stream === null) {
-                        $this->stream = fopen('php://memory', 'wb+');
-                    }
-
-                    return $this->stream;
-                }
-
-                return fopen('php://temp', 'wb+');
-            }
-        };
 
         $compiler = new ContainerCompiler($this->config);
         $compiler->supportsCompilation();
@@ -287,8 +268,7 @@ class ContainerCompilerTest extends TestCase
         );
         $compiler->compile();
 
-        $stream = $this->config->getFileHandle($compiler);
-        fseek($stream, 0);
+        $stream = fopen($this->config->getProjectRoot() . $this->config->getContainerFilepath(), 'rb');
         $content = stream_get_contents($stream);
         eval('?>' . $content);
 
